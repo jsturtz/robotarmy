@@ -1,0 +1,49 @@
+Unhiding windows folders
+	Search for "Hidden" in windows
+    	Under Files and Folders > Hidden files and folders, select the option to Show hidden files, folders and drives.
+
+Installing Python
+
+	Recommended version: 3.6.8 (PySimpleGUI recommends this version)
+	https://www.python.org/downloads/release/python-368/
+	Download and run the Windows x86-64 installer
+	Check "Add to Path".
+	Do the standard install (comes with tk/tcl)
+	Take note of install location. Should be something like C:/Users/jsturtz/AppData/Local/Programs/Python36
+	In windows search box, search for "PATH". Edit environment variables -> PATH. Move the newly added python.exe to top of PATH (this prioritizes this python interpreter over any other installs)
+
+Installing Pipenv
+	Open up command prompt. Type python.exe to confirm PATH is correctly set to py 3.6.8.
+	python.exe -m pip install pipenv
+
+FIXME: DO we need to install git and configure in PyCharm?
+
+Create a github account
+
+Setting up PyCharm as a dev environment
+
+	Install PyCharm
+
+    Register github account
+        Ctrl-Alt-S -> VCS -> Github -> Add account
+        Set default
+
+	Sync with github repo
+		VCS -> Check Out From Version Control -> Git
+		Enter the URL: https://github.com/jsturtz/robotarmy
+		This should be set as your current PyCharm project
+
+	Configure Python Virtual Environment in PyCharm
+		Ctrl-Alt-S to open Settings
+		Projects -> Project Interpreter -> Settings icon -> Add
+		Click "Pipenv Executable"
+		In the Base Interpreter, enter the path for the install location of python.exe
+		Check "Show Hidden Files and Directories"
+		In the Pipenv Executable, enter the path for for the pipenv.exe, which should be located
+		in C:\Users\sturtzj\AppData\Local\Programs\Python\Python36\Scripts\pipenv.exe
+		Check "Install packages from Pipfile"
+
+	Configuring entry point for program execution
+		"Add Configuration" -> "+"
+		Choose main.py in Script path, make sure RobotArmy Pipenv selected
+		Click execute to run first program!
