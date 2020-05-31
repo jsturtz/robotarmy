@@ -10,7 +10,11 @@ Installing Python
 	Check "Add to Path".
 	Do the standard install (comes with tk/tcl)
 	Take note of install location. Should be something like C:/Users/jsturtz/AppData/Local/Programs/Python36
-	In windows search box, search for "PATH". Edit environment variables -> PATH. Move the newly added python.exe to top of PATH (this prioritizes this python interpreter over any other installs)
+
+Windows PATH:
+    In windows search box, search for "PATH". Edit environment variables -> PATH.
+    Move the newly added python.exe to top of PATH (this prioritizes this python interpreter over any other installs)
+    Copy the same path just below but append \Scripts (this is for pipenv.exe later)
 
 Installing Pipenv
 	Open up command prompt. Type python.exe to confirm PATH is correctly set to py 3.6.8.
@@ -19,6 +23,14 @@ Installing Pipenv
 FIXME: DO we need to install git and configure in PyCharm?
 
 Create a github account
+
+Setting up DBeaver
+    Database -> New Database connection
+    Host: localhost
+    Database: postgresql
+    Port: 5432
+    Username: jsturtz
+    Password: 1234
 
 Setting up PyCharm as a dev environment
 
