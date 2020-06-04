@@ -24,14 +24,6 @@ FIXME: DO we need to install git and configure in PyCharm?
 
 Create a github account
 
-Setting up DBeaver
-    Database -> New Database connection
-    Host: localhost
-    Database: postgresql
-    Port: 5432
-    Username: jsturtz
-    Password: 1234
-
 Setting up PyCharm as a dev environment
 
 	Install PyCharm
@@ -59,3 +51,39 @@ Setting up PyCharm as a dev environment
 		"Add Configuration" -> "+"
 		Choose main.py in Script path, make sure RobotArmy Pipenv selected
 		Click execute to run first program!
+
+Install Postgres Server for Windows
+    Install latest here: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+    Pick an easy password
+    Make sure pgAdmin is checked
+    You can skip stack builder
+    ADD C:\Program Files\PostgreSQL\12\bin to the PATH variable
+    ADD C:\Program Files\PostgreSQL\12\data to the PATH variable
+    Create environment variables:
+        Variable=PGDATA
+        Value=C:\Program Files\PostgreSQL\12\data
+
+        # FIXME: Should keep password in settings.conf but I was having trouble with this
+        Variable=PGPASSWORD
+        Value=<password>
+
+    Run cmd.exe as administrator
+        -> pg_ctl start
+    (You can also start/stop the postgres service by going to Services -> postgres x64-12)
+
+    Run pgAdmin 4
+    Open server -> right click database -> create
+        Database=robotarmy
+        Comment=Database for robotarmy application
+
+    Create a configuration called Build Database in pycharm to execute build-db.py
+
+Theme Browser
+    I put a file in the root directory called "theme-browser.py" that you can run to see and set
+    different PySimpleGUI themes. Create an execution config called "Theme Browser" pointing
+    to this file. Execute this browser to see and set new themes.
+
+Settings.conf
+    This file we will use to store settings so that we don't replicate hardcoded values for things.
+    So far, there are only two categories: [connection] for db connection info and [gui] for the
+    color theme.

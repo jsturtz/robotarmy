@@ -1,27 +1,13 @@
 import PySimpleGUI as sg
 import psycopg2
+import util
 
 # set up connection to database
-host = "localhost"
-database = "postgresql"
-user = "jsturtz"
-password = "1234"
-con = psycopg2.connect(host=host, database=database, user=user, password=password)
-
-# create an initial table in database for testing
-cur = con.cursor()
-sql = """
-    CREATE TABLE IF NOT EXISTS universities (
-    universitiesid serial PRIMARY KEY,
-    pretty_name VARCHAR(100), 
-    code VARCHAR(10)
-    );
-"""
-cur.execute(sql)
-cur.close()
+config = util.get_config()
+con = util.get_connection()
 
 # Do the UI stuff
-sg.theme('DarkAmber')   # Add a touch of color
+sg.theme(config["gui"]["theme"])   # Add a touch of color
 
 # All the stuff inside your window.
 layout = [[sg.Text('Some text on Row 1')],
