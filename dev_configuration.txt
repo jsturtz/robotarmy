@@ -20,8 +20,6 @@ Installing Pipenv
 	Open up command prompt. Type python.exe to confirm PATH is correctly set to py 3.6.8.
 	python.exe -m pip install pipenv
 
-FIXME: DO we need to install git and configure in PyCharm?
-
 Create a github account
 
 Setting up PyCharm as a dev environment
@@ -87,3 +85,14 @@ Settings.conf
     This file we will use to store settings so that we don't replicate hardcoded values for things.
     So far, there are only two categories: [connection] for db connection info and [gui] for the
     color theme.
+
+Selenium configuration
+
+    Install chromedriver (necessary executable that automates Chrome):
+        https://chromedriver.storage.googleapis.com/index.html?path=83.0.4103.39/
+    Create a ChromeDriver folder in Program Files, add the executable there, and add this folder to the PATH
+
+    You'll need to have the same major version of chromium as well:
+    https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win_x64/756057/
+    Create a Chrome83 folder in Program Files and put the win-chrome folder there. Add the exectuable to the PATH
+
