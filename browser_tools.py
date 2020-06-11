@@ -3,11 +3,23 @@ Put any tools for doing browser manipulation here
 '''
 
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
-def move_and_click(driver, elem):
-    actions = ActionChains(driver)
-    actions.move_to_element(elem).perform()
-    actions.click(elem).perform()
+import time
+import re
+
+class Actions(ActionChains):
+    def wait(self, time_s: float):
+        self._actions.append(lambda: time.sleep(time_s))
+        return self
+
+def safely_click(driver, elem):
+    driver.execute_script("arguments[0].scrollIntoView();", elem)
+    #time.sleep(0.5)
+    WebDriverWait(driver, 10).until(EC.visibility_of(elem))
+    elem.click()
 
 def get_text_excluding_children(driver, element):
     return driver.execute_script("""
@@ -21,3 +33,6 @@ def get_text_excluding_children(driver, element):
         }
         return ret;
     """, element)
+
+def replace_newlines(s):
+    return s.replace('\\n', Keys.ENTER)

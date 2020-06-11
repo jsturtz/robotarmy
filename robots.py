@@ -21,28 +21,57 @@ class BlackBoardGrader:
         m = re.search('([a-z]*)\.blackboard', self.driver.current_url)
         if not m:
             raise Exception("Could not determine university name")
-        self.university_code = m.group(1)
-
-        # determine course from "crumb_1" element
-        self.course_code = driver.find_element_by_id('crumb_1').text.strip()
-        if not self.course_code:
-            raise Exception("Could not determine course name")
+        universitiesid = m.group(1).upper()
 
         # determine assignment from element with id called "pageTitleText"
-        self.assignment_code = driver.find_element_by_id('pageTitleText').text.strip()
-        if not self.assignment_code:
-            raise Exception("Could not determine assignment name")
+        assignment_ui_id = driver.find_element_by_id('pageTitleText').text.strip()
 
-        # get max scoring keyword from assignment
-        # FIXME: Surely there's a better way to wrap all this connection shit?
-        cur = self.con.cursor()
-        cur.execute(f"SELECT max_scoring_keyword FROM assignments WHERE code = '{self.assignment_code}'")
-        self.max_scoring_keyword = cur.fetchone()[0]
-        cur.close()
-        if not self.max_scoring_keyword:
-            raise Exception('Could not determine max scoring keyword (e.g. "Exemplary")')
+        # if discussion post, just use rubric elements on university
+        if "Discussion Forum" in assignment_ui_id:
+            rows = db.get_discussion_board_rubric_elements(self.con, universitiesid)
+            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
+            self.student_name = assignment_ui_id.split(": ")[1].split(" ")[0]
+            self.max_scoring_keyword = 'Excellent'  #FIXME: Hardcoded value here is bad booooo
 
-        self.rubric_responses = db.get_rubric_responses(self.con, self.university_code, self.course_code, self.assignment_code)
+        # else, must get rubric elems on assignment, course, uni
+        else:
+            # get student first name from page
+            elem = self.driver.find_element_by_xpath('//div[@class="students-pager"]//span[contains(text(), "Attempt")]')
+            self.student_name = elem.text.split(" ")[0] if elem else None
+
+            # determine course from "crumb_1" element
+            course_ui_id = driver.find_element_by_id('crumb_1').text.strip()
+            coursesid = db.queryOneVal(self.con, f"""
+                SELECT coursesid FROM courses 
+                WHERE ui_identifier = '{course_ui_id}';""")
+            if not course_ui_id or not coursesid:
+                raise Exception("Could not determine course name")
+
+            assignmentsid = db.queryOneVal(self.con, f"""
+                SELECT assignmentsid FROM assignments 
+                WHERE ui_identifier = '{assignment_ui_id}'
+                AND coursesid = '{coursesid}';""")
+            if not assignmentsid:
+                raise Exception("Could not determine assignmentsid")
+
+            # get max scoring keyword from assignment
+            self.max_scoring_keyword = db.queryOneVal(self.con, f"""
+                SELECT max_scoring_keyword FROM assignments
+                WHERE assignmentsid = '{assignmentsid}' AND coursesid = '{coursesid}';""")
+            if not self.max_scoring_keyword:
+                raise Exception('Could not determine max scoring keyword (e.g. "Exemplary")')
+
+            # get rubric element responses
+            rows = db.get_all_rubric_elements(self.con, universitiesid, coursesid, assignmentsid)
+            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
+
+        # assign summative feedback for rubric elements
+        self.summative_feedback = db.get_university_summative_feedback(con, universitiesid, self.student_name)
+
+        if not self.student_name:
+            raise Exception("No student name found on the page")
+        if not self.rubric_responses:
+            raise Exception("No rubric responses found for this assignment.")
 
     def grade(self):
         self.open_rubric_pane()
@@ -59,8 +88,7 @@ class BlackBoardGrader:
                 if event == 'Submit':
 
                     # iterate over the rubric_elems
-                    for elem in rubric_elems:
-
+                    for index, elem in enumerate(rubric_elems):
                         # Get the identifiers of all the radios in elem
                         identifiers = elem["radios"].keys()
 
@@ -68,7 +96,11 @@ class BlackBoardGrader:
                         selected_identifier = [key for key, val in values.items() if key in identifiers and val][0]
 
                         # click that identifier
-                        br.move_and_click(self.driver, elem["radios"][selected_identifier]["btn"])
+                        btn = elem["radios"][selected_identifier]["btn"]
+                        btn_parent = btn.find_element_by_xpath("./..")
+                        # does weird stuff if you try to click already selected radio
+                        if "selectedCell" not in btn_parent.get_attribute("class"):
+                            br.safely_click(self.driver, btn)
 
                         # is max scoring iff selected radio's label matches max scoring keyword
                         is_max_scoring = elem["radios"][selected_identifier]["label"] == self.max_scoring_keyword
@@ -77,30 +109,36 @@ class BlackBoardGrader:
                         response = self.rubric_responses[(elem["title"], is_max_scoring)]
 
                         # send that response to the textbox
-                        elem["feedback"].send_keys(response)
+                        elem["feedback"].clear()
+                        elem["feedback"].send_keys(br.replace_newlines(response))
 
-                    # submit feedback
+                    # submit summative feedback
+                    elem = self.driver.find_element_by_xpath('//div[@class="rubricGradingComments"]//textarea')
+                    elem.send_keys(br.replace_newlines(self.summative_feedback))
+
+                    # submit button!
                     submit_btn = self.driver.find_element_by_xpath("//a[@class='button-3' and text()='Save Rubric']")
                     # FIXME: Uncomment out this line to get the final submission
-                    # br.move_and_click(self.driver, submit_btn)
+                    # br.safely_click(self.driver, submit_btn)
 
             except Exception as e:
                 ui.error_window(e)
+
 
     def open_rubric_pane(self):
 
         # click that little flappy thing if not already clicked
         elem = self.driver.find_element_by_id('currentAttempt_gradeDataPanelLink')
         if elem.get_attribute("aria-expanded") == "false":
-            br.move_and_click(self.driver, elem)
+            br.safely_click(self.driver, elem)
 
         # click the rubric link thing
         elem = self.driver.find_element_by_id("collabRubricList").find_element_by_class_name("itemHead")
-        br.move_and_click(self.driver, elem)
+        br.safely_click(self.driver, elem)
 
         # make sure feedback is open
         if not self.driver.find_element_by_class_name("feedback").is_displayed():
-            br.move_and_click(self.driver, self.driver.find_element_by_id("rubricToggleFeedback"))
+            br.safely_click(self.driver, self.driver.find_element_by_id("rubricToggleFeedback"))
 
     '''
     This creates a data structure like this: 
@@ -147,3 +185,5 @@ class BlackBoardGrader:
             layout.append(max_points_radio + [sg.Radio(radio["label"], f"RADIO{i}", key=identifier) for identifier, radio in elem["radios"].items() if radio["label"] != self.max_scoring_keyword])
         layout.append([sg.Submit()])
         return layout
+
+

@@ -3,6 +3,7 @@ from selenium import webdriver
 import util
 import ui_tools as ui
 import robots
+import browser_tools as br
 
 config = util.get_config()
 con = util.get_connection()
