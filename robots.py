@@ -73,6 +73,9 @@ class BlackBoardGrader:
 
         self.driver = driver
         self.con = con
+        self.rubric_responses = {}
+        self.student_name = ""
+        self.max_scoring_keyword = ""
 
 
     def grade(self):
@@ -105,11 +108,11 @@ class BlackBoardGrader:
                         if "selectedCell" not in btn_parent.get_attribute("class"):
                             br.safely_click(self.driver, btn)
 
-                        # is max scoring iff selected radio's label matches max scoring keyword
-                        is_max_scoring = elem["radios"][selected_identifier]["label"] == self.max_scoring_keyword
+                        # rank 1 iff selected radio's label matches max scoring keyword
+                        rank = 1 if elem["radios"][selected_identifier]["label"] == self.max_scoring_keyword else 2
 
                         # pass in the tuple (title, is_max_scoring) to get the response
-                        response = self.rubric_responses[(elem["title"], is_max_scoring)]
+                        response = self.rubric_responses[(elem["title"], rank)]
 
                         # send that response to the textbox
                         elem["feedback"].clear()
@@ -143,10 +146,13 @@ class BlackBoardGrader:
             rows = db.get_discussion_board_rubric_elements(self.con, universitiesid)
             self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
             self.student_name = assignment_ui_id.split(": ")[1].split(" ")[0]
-            self.max_scoring_keyword = 'Excellent'  #FIXME: Hardcoded value here is bad booooo
+            self.max_scoring_keyword = 'Excellent'
 
         # else, must get rubric elems on assignment, course, uni
         else:
+            # get max scoring keyword from assignment
+            self.max_scoring_keyword = 'Exemplary'
+
             # get student first name from page
             elem = self.driver.find_element_by_xpath('//div[@class="students-pager"]//span[contains(text(), "Attempt")]')
             self.student_name = elem.text.split(" ")[0] if elem else None
@@ -165,13 +171,6 @@ class BlackBoardGrader:
                 AND coursesid = '{coursesid}';""")
             if not assignmentsid:
                 raise Exception("Could not determine assignmentsid")
-
-            # get max scoring keyword from assignment
-            self.max_scoring_keyword = db.queryOneVal(self.con, f"""
-                SELECT max_scoring_keyword FROM assignments
-                WHERE assignmentsid = '{assignmentsid}' AND coursesid = '{coursesid}';""")
-            if not self.max_scoring_keyword:
-                raise Exception('Could not determine max scoring keyword (e.g. "Exemplary")')
 
             # get rubric element responses
             rows = db.get_all_rubric_elements(self.con, universitiesid, coursesid, assignmentsid)

@@ -32,10 +32,9 @@ def query_grouped_by_dict(con, table, grouped_by, columns):
 def get_discussion_board_rubric_elements(con, universitiesid):
     cur = con.cursor()
     cur.execute(f"""
-        SELECT re.title, re.is_max_scoring, re.response
-        FROM rubric_elements re
-        JOIN universities_rubric_elements ure ON ure.rubric_elementsid = re.rubric_elementsid 
-        WHERE ure.universitiesid = '{universitiesid}';
+        SELECT title, rank, response
+        FROM universities_rubric_elements
+        WHERE universitiesid = '{universitiesid}';
     """)
     rows = cur.fetchall()
     cur.close()
@@ -45,9 +44,8 @@ def get_all_rubric_elements(con, universitiesid, coursesid, assignmentsid):
     # get specific rubric elements first
     cur = con.cursor()
     cur.execute(f"""
-        SELECT re.title, re.is_max_scoring, re.response
-        FROM rubric_elements re 
-        JOIN assignments_rubric_elements are1 ON are1.rubric_elementsid = re.rubric_elementsid 
+        SELECT are1.title, are1.rank, are1.response
+        FROM assignments_rubric_elements are1
         JOIN assignments a ON a.assignmentsid = are1.assignmentsid 
         JOIN courses c ON a.coursesid = c.coursesid 
         JOIN universities u on u.universitiesid = c.universitiesid 
@@ -60,7 +58,7 @@ def get_all_rubric_elements(con, universitiesid, coursesid, assignmentsid):
 
     # then grab the generic rubric elements together with their variable interpolation
     cur.execute(f"""
-        SELECT gre.title, gre.is_max_scoring, gre.response, agre.variables
+        SELECT gre.title, gre.rank, gre.response, agre.variables
         FROM generic_rubric_elements gre
         JOIN assignments_generic_rubric_elements agre ON agre.title = gre.title
         JOIN assignments a ON a.assignmentsid = agre.assignmentsid AND a.coursesid = agre.coursesid
@@ -82,7 +80,7 @@ def get_university_summative_feedback(con, universitiesid, name):
 
     feedback = queryOneVal(con, f"SELECT summative_feedback FROM universities WHERE universitiesid = '{universitiesid}';")
     if not feedback:
-        raise Exception(f'No summative feedback found for {uni}')
+        raise Exception(f'No summative feedback found for {universitiesid}')
 
     return feedback.format(name=name)
 
