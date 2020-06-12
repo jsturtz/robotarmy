@@ -10,6 +10,63 @@ import db_tools as db
 import PySimpleGUI as sg
 import util
 
+class QuickLinks:
+
+    def __init__(self, driver, con):
+        self.driver = driver
+        self.con = con
+
+    def display_links(self):
+        columns = ['pretty_name', 'url']
+        uni_links = db.query_grouped_by_dict(self.con, 'universities_links', 'universitiesid', columns)
+        course_links = db.query_grouped_by_dict(self.con, 'courses_links', 'coursesid', columns)
+        assign_links = db.query_grouped_by_dict(self.con, 'assignments_links', 'assignmentsid', columns)
+
+        layout = []
+        if uni_links:
+            layout.append([sg.Text('Universities')])
+            for uni, links in uni_links.items():
+                layout.append([sg.Text(uni)] + [sg.Button(link[0], key=link[1]) for link in links])
+        if course_links:
+            layout.append([sg.Text('Courses')])
+            for course, links in course_links.items():
+                layout.append([sg.Text(course)] + [sg.Button(link[0], key=link[1]) for link in links])
+        if assign_links:
+            layout.append([sg.Text('Universities')])
+            for assignment, links in uni_links.items():
+                layout.append([sg.Text(assignment)] + [sg.Button(link[0], key=link[1]) for link in links])
+        if not layout:
+            layout.append([sg.Text("You have not created any links. Insert some records into universities_links, courses_links, or assignments_links")])
+        layout.append([sg.Cancel()])
+
+        window = sg.Window('Quicklinks', layout)
+        while True:
+            event, values = window.read()
+            if event in (None, 'Cancel'):   # if user closes window or clicks cancel
+                break
+
+            # the event in this case always holds the url
+            self.driver.get(event)
+        window.close()
+
+class Grader:
+
+    def __init__(self, driver, con):
+
+        self.driver = driver
+        self.con = con
+
+        if "blackboard" in self.driver.current_url:
+            self.robot = BlackBoardGrader(self.driver, self.con)
+            # add the rest of the conditionals once we code this up for the four platforms
+        elif "lms-grad.gcu" in self.driver.current_url:
+            self.robot = LoudCloudGrader(self.driver, self.con)
+        else:
+            raise Exception("No robots were found for grading this page (is your browser currently on the right URL?)")
+
+    def grade(self):
+        self.robot.grade()
+
 class BlackBoardGrader:
 
     def __init__(self, driver, con):
@@ -17,63 +74,9 @@ class BlackBoardGrader:
         self.driver = driver
         self.con = con
 
-        # Determine university from url
-        m = re.search('([a-z]*)\.blackboard', self.driver.current_url)
-        if not m:
-            raise Exception("Could not determine university name")
-        universitiesid = m.group(1).upper()
-
-        # determine assignment from element with id called "pageTitleText"
-        assignment_ui_id = driver.find_element_by_id('pageTitleText').text.strip()
-
-        # if discussion post, just use rubric elements on university
-        if "Discussion Forum" in assignment_ui_id:
-            rows = db.get_discussion_board_rubric_elements(self.con, universitiesid)
-            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
-            self.student_name = assignment_ui_id.split(": ")[1].split(" ")[0]
-            self.max_scoring_keyword = 'Excellent'  #FIXME: Hardcoded value here is bad booooo
-
-        # else, must get rubric elems on assignment, course, uni
-        else:
-            # get student first name from page
-            elem = self.driver.find_element_by_xpath('//div[@class="students-pager"]//span[contains(text(), "Attempt")]')
-            self.student_name = elem.text.split(" ")[0] if elem else None
-
-            # determine course from "crumb_1" element
-            course_ui_id = driver.find_element_by_id('crumb_1').text.strip()
-            coursesid = db.queryOneVal(self.con, f"""
-                SELECT coursesid FROM courses 
-                WHERE ui_identifier = '{course_ui_id}';""")
-            if not course_ui_id or not coursesid:
-                raise Exception("Could not determine course name")
-
-            assignmentsid = db.queryOneVal(self.con, f"""
-                SELECT assignmentsid FROM assignments 
-                WHERE ui_identifier = '{assignment_ui_id}'
-                AND coursesid = '{coursesid}';""")
-            if not assignmentsid:
-                raise Exception("Could not determine assignmentsid")
-
-            # get max scoring keyword from assignment
-            self.max_scoring_keyword = db.queryOneVal(self.con, f"""
-                SELECT max_scoring_keyword FROM assignments
-                WHERE assignmentsid = '{assignmentsid}' AND coursesid = '{coursesid}';""")
-            if not self.max_scoring_keyword:
-                raise Exception('Could not determine max scoring keyword (e.g. "Exemplary")')
-
-            # get rubric element responses
-            rows = db.get_all_rubric_elements(self.con, universitiesid, coursesid, assignmentsid)
-            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
-
-        # assign summative feedback for rubric elements
-        self.summative_feedback = db.get_university_summative_feedback(con, universitiesid, self.student_name)
-
-        if not self.student_name:
-            raise Exception("No student name found on the page")
-        if not self.rubric_responses:
-            raise Exception("No rubric responses found for this assignment.")
 
     def grade(self):
+        self.initialize_data_from_page()
         self.open_rubric_pane()
         rubric_elems = self.get_rubric_elems_from_page()
         layout = self.build_radio_selector_layout(rubric_elems)
@@ -98,7 +101,7 @@ class BlackBoardGrader:
                         # click that identifier
                         btn = elem["radios"][selected_identifier]["btn"]
                         btn_parent = btn.find_element_by_xpath("./..")
-                        # does weird stuff if you try to click already selected radio
+                        # does weird stuff if you try to click already selected radio so make sure not selected
                         if "selectedCell" not in btn_parent.get_attribute("class"):
                             br.safely_click(self.driver, btn)
 
@@ -124,6 +127,63 @@ class BlackBoardGrader:
             except Exception as e:
                 ui.error_window(e)
 
+    def initialize_data_from_page(self):
+
+        # Determine university from url
+        m = re.search('([a-z]*)\.blackboard', self.driver.current_url)
+        if not m:
+            raise Exception("Could not determine university name")
+        universitiesid = m.group(1).upper()
+
+        # determine assignment from element with id called "pageTitleText"
+        assignment_ui_id = self.driver.find_element_by_id('pageTitleText').text.strip()
+
+        # if discussion post, just use rubric elements on university
+        if "Discussion Forum" in assignment_ui_id:
+            rows = db.get_discussion_board_rubric_elements(self.con, universitiesid)
+            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
+            self.student_name = assignment_ui_id.split(": ")[1].split(" ")[0]
+            self.max_scoring_keyword = 'Excellent'  #FIXME: Hardcoded value here is bad booooo
+
+        # else, must get rubric elems on assignment, course, uni
+        else:
+            # get student first name from page
+            elem = self.driver.find_element_by_xpath('//div[@class="students-pager"]//span[contains(text(), "Attempt")]')
+            self.student_name = elem.text.split(" ")[0] if elem else None
+
+            # determine course from "crumb_1" element
+            course_ui_id = self.driver.find_element_by_id('crumb_1').text.strip()
+            coursesid = db.queryOneVal(self.con, f"""
+                SELECT coursesid FROM courses 
+                WHERE ui_identifier = '{course_ui_id}';""")
+            if not course_ui_id or not coursesid:
+                raise Exception("Could not determine course name")
+
+            assignmentsid = db.queryOneVal(self.con, f"""
+                SELECT assignmentsid FROM assignments 
+                WHERE ui_identifier = '{assignment_ui_id}'
+                AND coursesid = '{coursesid}';""")
+            if not assignmentsid:
+                raise Exception("Could not determine assignmentsid")
+
+            # get max scoring keyword from assignment
+            self.max_scoring_keyword = db.queryOneVal(self.con, f"""
+                SELECT max_scoring_keyword FROM assignments
+                WHERE assignmentsid = '{assignmentsid}' AND coursesid = '{coursesid}';""")
+            if not self.max_scoring_keyword:
+                raise Exception('Could not determine max scoring keyword (e.g. "Exemplary")')
+
+            # get rubric element responses
+            rows = db.get_all_rubric_elements(self.con, universitiesid, coursesid, assignmentsid)
+            self.rubric_responses = {(row[0], row[1]): row[2] for row in rows if rows}
+
+        # assign summative feedback for rubric elements
+        self.summative_feedback = db.get_university_summative_feedback(self.con, universitiesid, self.student_name)
+
+        if not self.student_name:
+            raise Exception("No student name found on the page")
+        if not self.rubric_responses:
+            raise Exception("No rubric responses found for this assignment.")
 
     def open_rubric_pane(self):
 
@@ -186,4 +246,12 @@ class BlackBoardGrader:
         layout.append([sg.Submit()])
         return layout
 
+class LoudCloudGrader:
 
+    def __init__(self, driver, con):
+
+        self.driver = driver
+        self.con = con
+
+    def grade(self):
+        print("We're grading loudcloud now!")

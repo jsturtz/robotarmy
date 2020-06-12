@@ -16,6 +16,19 @@ def queryOneVal(con, query):
     cur.close()
     return rows[0]
 
+# FIXME: kinda shit function. User has to access columns they request by index they provide
+def query_grouped_by_dict(con, table, grouped_by, columns):
+    cur = con.cursor()
+    cur.execute(f"SELECT %s, %s FROM %s ORDER BY %s;" % (grouped_by, ", ".join(columns), table, grouped_by) )
+    rows = cur.fetchall()
+    return_dict = {key: [] for key in set([row[0] for row in rows])}
+
+    for row in rows:
+        return_dict[row[0]].append(row[1:])
+    cur.close()
+    return return_dict
+
+
 def get_discussion_board_rubric_elements(con, universitiesid):
     cur = con.cursor()
     cur.execute(f"""
@@ -46,11 +59,12 @@ def get_all_rubric_elements(con, universitiesid, coursesid, assignmentsid):
     specific_rubric_elems = cur.fetchall()
 
     # then grab the generic rubric elements together with their variable interpolation
-    cur.execute("""
+    cur.execute(f"""
         SELECT gre.title, gre.is_max_scoring, gre.response, agre.variables
         FROM generic_rubric_elements gre
         JOIN assignments_generic_rubric_elements agre ON agre.title = gre.title
-        JOIN assignments a ON a.assignmentsid = agre.assignmentsid AND a.coursesid = agre.coursesid;
+        JOIN assignments a ON a.assignmentsid = agre.assignmentsid AND a.coursesid = agre.coursesid
+        WHERE gre.universitiesid = '{universitiesid}';
     """)
 
     # interpolate variables

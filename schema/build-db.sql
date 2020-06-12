@@ -1,33 +1,25 @@
-/*
-HOWTO:
-
-Most tables will have a "code" field. This is the field you should be using internally to this file to match
-records. For example, suppose you insert a record into universities with a code of "post". You will not necessarily
-know the universitiesid of this new record unless you return it directly after the insertion. To make this easier
-to code and extend, the "code" field can be used effectively as unique "lookup" for many tables. If you need to
-insert the universitiesid later in the file, you can just write
-"(SELECT universitiesid FROM universities WHERE code = 'post')".
-
-Only the universities table so far as a UNIQUE constraint on the code field. Others have a UNIQUE contraint on
-the code field together with its foreign key reference. So, for example, the courses table requires that each
-(universitiesid, code) pair must be unique. So you will want to probably look up the coursesid by
-searching by universitiesid and code.
-
-*/
-
-
 -- drop all the tables first and then recreate them
+DROP TABLE IF EXISTS robots;
 DROP TABLE IF EXISTS assignments_rubric_elements;
 DROP TABLE IF EXISTS universities_rubric_elements;
 DROP TABLE IF EXISTS rubric_elements;
 DROP TABLE IF EXISTS generic_rubric_elements;
 DROP TABLE IF EXISTS assignments_generic_rubric_elements;
-DROP TABLE IF EXISTS assignments_quicklinks;;
-DROP TABLE IF EXISTS courses_quicklinks;
-DROP TABLE IF EXISTS universities_quicklinks;
+DROP TABLE IF EXISTS assignments_links;;
+DROP TABLE IF EXISTS courses_links;
+DROP TABLE IF EXISTS universities_links;
 DROP TABLE IF EXISTS assignments;
 DROP TABLE IF EXISTS courses;
 DROP TABLE IF EXISTS universities;
+
+CREATE TABLE robots (
+    robotsid SERIAL,
+    button TEXT NOT NULL,
+    robot TEXT NOT NULL,
+    method TEXT NOT NULL,
+    method_args jsonb,
+    PRIMARY KEY (robotsid)
+);
 
 CREATE TABLE universities (
     universitiesid TEXT,
@@ -63,9 +55,9 @@ CREATE TABLE assignments (
 CREATE TABLE rubric_elements (
     rubric_elementsid SERIAL,
     title TEXT,
-    response TEXT,
-    is_max_scoring BOOLEAN,
-    max_scoring_keyword TEXT,
+    response TEXT NOT NULL,
+    is_max_scoring BOOLEAN NOT NULL,
+    max_scoring_keyword TEXT NOT NULL,
     PRIMARY KEY (rubric_elementsid)
 );
 
@@ -81,11 +73,12 @@ does not have variable interpolation, then you must still insert a new record bu
 set to an empty json object.
 */
 CREATE TABLE generic_rubric_elements (
+    universitiesid TEXT,
     title TEXT,
     response TEXT,
     is_max_scoring BOOLEAN,
     max_scoring_keyword TEXT,
-    PRIMARY KEY (title, is_max_scoring)
+    PRIMARY KEY (universitiesid, title, is_max_scoring)
 );
 
 CREATE TABLE assignments_generic_rubric_elements (
@@ -118,14 +111,14 @@ CREATE TABLE universities_rubric_elements (
 );
 
 -- used to associate urls with respective entities
-CREATE TABLE universities_quicklinks (
+CREATE TABLE universities_links (
     id SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
     pretty_name TEXT NOT NULL,
     universitiesid TEXT REFERENCES universities(universitiesid)
 );
 
-CREATE TABLE courses_quicklinks (
+CREATE TABLE courses_links (
     quicklinks_coursesid SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
     pretty_name TEXT NOT NULL,
@@ -134,7 +127,7 @@ CREATE TABLE courses_quicklinks (
     FOREIGN KEY (coursesid, universitiesid) REFERENCES courses(coursesid, universitiesid)
 );
 
-CREATE TABLE assignments_quicklinks (
+CREATE TABLE assignments_links (
     quicklinks_assignmentsid SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
     pretty_name TEXT NOT NULL,
@@ -143,26 +136,35 @@ CREATE TABLE assignments_quicklinks (
     FOREIGN KEY (assignmentsid, coursesid) REFERENCES assignments(assignmentsid, coursesid)
 );
 
+INSERT INTO robots (robot, method, button)
+VALUES
+('Grader', 'grade', 'Grade Class'),
+('QuickLinks', 'display_links', 'Quick Links');
+
 -- Make the id uppper case. Right now I'm looking up the universitiesid by looking at the URL
 INSERT INTO universities (universitiesid, pretty_name, summative_feedback)
 VALUES
-('POST', 'Post University', '{name}\n\nThank you for your work with this learning activity. Please review my remarks in the rubric for more information about your grade.  Remember, I am invested in you and in your success.  Please be sure to reach out to me if you need help.  :)\n\nDr. Sturtz');
+('POST', 'Post University', '{name}\n\nThank you for your work with this learning activity. Please review my remarks in the rubric for more information about your grade.  Remember, I am invested in you and in your success.  Please be sure to reach out to me if you need help.  :)\n\nDr. Sturtz'),
+('GCU', 'Grand Canyon University', ''); -- FIXME: GIVE ME THE FUCKING SHIT
 
-INSERT INTO universities_quicklinks (universitiesid, pretty_name, url)
+INSERT INTO universities_links (universitiesid, pretty_name, url)
 VALUES
-('POST', 'Home', 'https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_646_1');
+('POST', 'Home', 'https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_646_1'),
+('GCU', 'Home', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn#/learningPlatform/dashboardWidget/dashboardWidget.lc?operation=getUserDashBoard&classSpecific=true&c=prepareUserDashBoard&t=homeMenuOption&tempDate=1591922913590');
 
 INSERT INTO courses (coursesid, universitiesid, pretty_name, ui_identifier)
 VALUES
 ('MKT200', 'POST', 'Principles of Marketing', 'MKT200_37_Principles of Marketing_2019_20_TERM6'),
-('BUS311', 'POST', 'Managerial Communications', 'BUS311_31_Managerial Communications_2019_20_TERM6');
+('BUS311', 'POST', 'Managerial Communications', 'BUS311_31_Managerial Communications_2019_20_TERM6'),
+('LDR655', 'GCU', 'Leadership Capstone', ''); -- FIXME: need ui identifier?
 
-INSERT INTO courses_quicklinks (pretty_name, coursesid, universitiesid, url)
+INSERT INTO courses_links (pretty_name, coursesid, universitiesid, url)
 VALUES
 ('Announcements', 'MKT200', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94915_1&handle=cp_announcements&mode=cpview'),
 ('Grading Center', 'MKT200', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94915_1&cvid=fullGC'),
 ('Announcements', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94961_1&handle=cp_announcements&mode=cpview'),
-('Grading Center', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94961_1&cvid=fullGC');
+('Grading Center', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94961_1&cvid=fullGC'),
+('Grading Center', 'LDR655', 'GCU', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d#/learningPlatform/class/content.lc?operation=getClassGradeBook&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d&c=prepareClassGradeBook&forAdmin=false&isFromInstructorProgressTab=true&t=gradeBookMenuOption&tempDate=1591923342076');
 
 INSERT INTO assignments (assignmentsid, coursesid, universitiesid, max_scoring_keyword, ui_identifier, summative_feedback)
 VALUES
@@ -183,15 +185,22 @@ VALUES
 
 ---------------------------------------------------------------------------------------------------
 -- RUBRIC ELEMENTS
--- GENERIC DISCUSSION POSTS
-INSERT INTO generic_rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+-- GENERIC DISCUSSION POSTS (must be per university since often contains university specific resources)
+INSERT INTO generic_rubric_elements (title, universitiesid, is_max_scoring, max_scoring_keyword, response)
 VALUES
-('Resources', TRUE, 'Exemplary', 'You had at least {number} references in your work.  Good.'),
-('Resources', FALSE, 'Exemplary', 'You did not have more than {number} references in the text and in your reference list.'),
-('Paper Length', TRUE, 'Exemplary', 'Your work was  more than {number} properly APA formatted pages.'),
-('Paper Length', FALSE, 'Exemplary', 'Your work was not more than {number} properly APA formatted pages.  Also, only that which you actually write counts toward page count.  This means that both front matter and back matter (title, abstract, reference pages and so on) do not count toward page count. '),
-('Clear and Professional Writing and APA Format', TRUE, 'Exemplary', 'You have excellent work in this rubric element.'),
-('Clear and Professional Writing and APA Format', FALSE, 'Exemplary', 'To have earned the most points in this rubric element your work should have been  clear, professional, and consistent with APA.\n\nIt is okay to need work in this area, but it will be necessary to develop yourself in this area. Here is a resource: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_');
+-- For post university
+('Resources', 'POST', TRUE, 'Exemplary', 'You had at least {number} references in your work.  Good.'),
+('Resources', 'POST', FALSE, 'Exemplary', 'You did not have more than {number} references in the text and in your reference list.'),
+('Paper Length', 'POST', TRUE, 'Exemplary', 'Your work was  more than {number} properly APA formatted pages.'),
+('Paper Length', 'POST', FALSE, 'Exemplary', 'Your work was not more than {number} properly APA formatted pages.  Also, only that which you actually write counts toward page count.  This means that both front matter and back matter (title, abstract, reference pages and so on) do not count toward page count. '),
+('Clear and Professional Writing and APA Format', 'POST', TRUE, 'Exemplary', 'You have excellent work in this rubric element.'),
+('Clear and Professional Writing and APA Format', 'POST', FALSE, 'Exemplary', 'To have earned the most points in this rubric element your work should have been  clear, professional, and consistent with APA.\n\nIt is okay to need work in this area, but it will be necessary to develop yourself in this area. Here is a resource: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_'),
+('Grammar, Punctuation, and Spelling: Error free writing.', 'POST', TRUE, 'Exemplary', 'Excellent. You did a good job with putting forward work without any grammar problems.  Well done!  If you ever think you might need some resources in this rubric element, please be sure to check out the resources available for Post University students. For instance, Post University students have Grammerly for free: Check it out here: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1'),
+('Grammar, Punctuation, and Spelling: Error free writing.', 'POST', FALSE, 'Exemplary', 'The work needed to be error free to maximize points in this rubric element.  Sometimes, is is necessary to learn or relearn grammar rules.  It might be good for you to invest in this area.    Academic writing can take a little bit of work to learn. Fortunately, the school has some excellent resources available to you. For instance, Post students have Grammary for free.  Check it out here: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1'),
+('Tone', 'POST', TRUE, 'Exemplary', 'To have maximized your grade with this rubric element, it was necessary to bring forward your work with a professional tone. Depending on the situation, professional tones could be consolatory, congratulatory, or directional. There are other tones as well. I can see your good work in this part of the rubric.  Awesome!\n\nWe usually convey email tone in the words we write. At the same time, we can also convey email tone in our use of capitalization, emoticons, pictures, and so on. To learn more about email tone, check out this resource: https://www.psychologytoday.com/us/blog/threat-management/201311/dont-type-me-email-and-emotions'),
+('Tone', 'POST', FALSE, 'Exemplary', 'To have maximized your grade with this rubric element, it was necessary to bring forward your work with a professional tone. Depending on the situation, professional tones could be consolatory, congratulatory, or directional. There are other tones as well. I would be good to put some work into this area.\n\nWe usually convey email tone in the words we write. At the same time, we can also convey email tone in our use of capitalization, emoticons, pictures, and so on. To learn more about email tone, check out this resource: https://www.psychologytoday.com/us/blog/threat-management/201311/dont-type-me-email-and-emotions'),
+('Sentence Structure, Word Choice, and Transitions', 'POST', TRUE, 'Exemplary', 'To have earned the most points in this rubric element, it was necessary to have work that included complete sentences and that also varied with sentence structure and length. It was also necessary to take out extraneous words and phrases so the work was concise. Very good.  I can see commitment to your studies in this rubric element.  Although you earned the maximum available points in this rubric element, it''s always nice to have resources. For instance, check out this resource for Post students: Check them out: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1'),
+('Sentence Structure, Word Choice, and Transitions', 'POST', FALSE, 'Exemplary', 'To have earned the most points in this rubric element, it was necessary to have work that included complete sentences and that also varied with sentence structure and length. It was also necessary to take out extraneous words and phrases so the work was concise.  Academic writing can take a little bit of work to learn. It would be good to develop in this area.  Fortunately, the school has some excellent resources available to you. Check them out: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1');
 
 -- RUBRIC ELEMENTS FOR DISCUSSION POST
 WITH ids as (
@@ -252,12 +261,12 @@ VALUES
 WITH ids as (
     INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
     VALUES
-    ('Introduction: Identify Why you Chose the Company, Services They Provide, Location, How Many, Employees', TRUE, 'Exemplary', ''),
-    ('Introduction: Identify Why you Chose the Company, Services They Provide, Location, How Many, Employees', FALSE, 'Exemplary', ''),
-    ('Company''s Branding Strategy: Brand Positioning, Brand Recognition, Crowdsourcing, Private Label Branding or Brand Extensions.', TRUE, 'Exemplary', ''),
-    ('Company''s Branding Strategy: Brand Positioning, Brand Recognition, Crowdsourcing, Private Label Branding or Brand Extensions.', FALSE, 'Exemplary', ''),
-    ('Evaluation: Identify and discuss 4 Key Service Characteristics', TRUE, 'Exemplary', ''),
-    ('Evaluation: Identify and discuss 4 Key Service Characteristics', FALSE, 'Exemplary', '')
+    ('Introduction: Identify Why you Chose the Company, Services They Provide, Location, How Many, Employees', TRUE, 'Exemplary', 'Super. I can see your excellence in your work in this area.'),
+    ('Introduction: Identify Why you Chose the Company, Services They Provide, Location, How Many, Employees', FALSE, 'Exemplary', 'To have maximized your grade in this rubric element, it was necessary to have provide a brief introduction to your chosen company, what services they provide, where they are located, how many employees they have etc. and explain why you chose this company'),
+    ('Company''s Branding Strategy: Brand Positioning, Brand Recognition, Crowdsourcing, Private Label Branding or Brand Extensions.', TRUE, 'Exemplary', 'Nicely done!  Your work is strong in this rubric element.  Very good!'),
+    ('Company''s Branding Strategy: Brand Positioning, Brand Recognition, Crowdsourcing, Private Label Branding or Brand Extensions.', FALSE, 'Exemplary', 'To have earned the maximum possible points in this rubric element it was necessary to have work that  adresses a number of topics.  These include what is the service company’s branding strategy? Some additional items to conisder include: How do they position their brand? Do they have a well-established name brand recognition? Do they use crowdsourcing? Do they use private-label branding or brand extensions?'),
+    ('Evaluation: Identify and discuss 4 Key Service Characteristics', TRUE, 'Exemplary', 'I can see your good work in this part of the rubric.  Awesome!'),
+    ('Evaluation: Identify and discuss 4 Key Service Characteristics', FALSE, 'Exemplary', 'To have earned all the points in this part of the rubric, the work needed to discuss the four service characteristics as these relate to your selected company: Intangibility, Inseparability, Perishability, and Variability. You can learn more about each of these in our learning materials. ')
     RETURNING rubric_elementsid
 )
 INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
@@ -267,12 +276,12 @@ FROM ids;
 -- then insert the variables needed for any generic rubric elements used
 INSERT INTO assignments_generic_rubric_elements(title, is_max_scoring, variables, assignmentsid, coursesid)
 VALUES
-('Resources', TRUE, '{"number":2}', 'A1', 'MKT200'),
-('Resources', FALSE, '{"number":2}', 'A1', 'MKT200'),
-('Paper Length', TRUE, '{"number":2}', 'A1', 'MKT200'),
-('Paper Length', FALSE, '{"number":2}', 'A1', 'MKT200'),
-('Clear and Professional Writing and APA Format', TRUE, '{}', 'A1', 'MKT200'),
-('Clear and Professional Writing and APA Format', FALSE, '{}', 'A1', 'MKT200');
+('Resources', TRUE, '{"number":"two"}', 'A3', 'MKT200'),
+('Resources', FALSE, '{"number":"two"}', 'A3', 'MKT200'),
+('Paper Length', TRUE, '{"number":"two"}', 'A3', 'MKT200'),
+('Paper Length', FALSE, '{"number":"two"}', 'A3', 'MKT200'),
+('Clear and Professional Writing and APA Format', TRUE, '{}', 'A3', 'MKT200'),
+('Clear and Professional Writing and APA Format', FALSE, '{}', 'A3', 'MKT200');
 
 -- course:      MKT200_37_Principles of Marketing_2019_20_TERM6
 -- assignment:  Unit 4 Assignment: Pricing
@@ -298,18 +307,193 @@ FROM ids;
 -- then insert the variables needed for any generic rubric elements used
 INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
 VALUES
-('Resources', TRUE, '{"number":2}', 'A4', 'MKT200'),
-('Resources', FALSE, '{"number":2}', 'A4', 'MKT200'),
-('Paper Length', TRUE, '{"number":2}', 'A4', 'MKT200'),
-('Paper Length', FALSE, '{"number":2}', 'A4', 'MKT200'),
-('Clear and Professional Writing and APA Format', TRUE, '{}', 'A1', 'MKT200'),
-('Clear and Professional Writing and APA Format', FALSE, '{}', 'A1', 'MKT200');
+('Resources', TRUE, '{"number":"two"}', 'A4', 'MKT200'),
+('Resources', FALSE, '{"number":"two"}', 'A4', 'MKT200'),
+('Paper Length', TRUE, '{"number":"two"}', 'A4', 'MKT200'),
+('Paper Length', FALSE, '{"number":"two"}', 'A4', 'MKT200'),
+('Clear and Professional Writing and APA Format', TRUE, '{}', 'A4', 'MKT200'),
+('Clear and Professional Writing and APA Format', FALSE, '{}', 'A4', 'MKT200');
 
 -- course:      MKT200_37_Principles of Marketing_2019_20_TERM6
 -- assignment:  Unit 6 Assignment: Integrated Marketing Presentation
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Title and Introduction Slides', TRUE, 'Exemplary', 'Super. I can see your excellence in your work in this area.'),
+    ('Title and Introduction Slides', FALSE, 'Exemplary', 'To have maximized your grade in this rubric element, it was necessary to have work that included an  introduction of the product and why you chose it.  This section should have  fully and thoughtfully addressed and it should have included all details. This is where you defend the decisions you’ve made so that your stakeholders understand why you made one decision over another.  The project needed more development in this area.'),
+    ('Advertising Objectives', TRUE, 'Exemplary', 'Nicely done!  Your work is strong in this rubric element.  Very good!'),
+    ('Advertising Objectives', FALSE, 'Exemplary', 'To have earned the most points in this section, the work needed to have advertising objectives that are fully and thoughtfully addressed. These should have included all details including things like target market and positioning.'),
+    ('Advertising Budget', TRUE, 'Exemplary', 'I can see your good work in this part of the rubric.  Awesome!'),
+    ('Advertising Budget', FALSE, 'Exemplary', 'To have earned the most points in section, it was important to have an advertising budget is fully and thoughtfully addressed.  The details should have included topics such as a section of budget methods with a rationale of why you chose that method: affordable method, percentage of sales method, competitive parity method or object and task method.'),
+    ('Advertising Strategy', TRUE, 'Exemplary', 'Very good.  I can see commitment to your studies in this rubric'),
+    ('Advertising Strategy', FALSE, 'Exemplary', 'To have earned the maximum available points in this section, it was necessary to have an advertising strategy is fully and thoughtfully addressed.  The details needed to include: a) crafting a brand promise stating the value or experience the customers can expect from the company. b) creating the advertising message to reach your target audience. c) selecting advertising media, you will use to convey your brand promise and advertising message'),
+    ('Evaluation on Using Google Trends to Evaluate Strategy Effectiveness', TRUE, 'Exemplary', 'You did a very good job with this rubric element. '),
+    ('Evaluation on Using Google Trends to Evaluate Strategy Effectiveness', FALSE, 'Exemplary', 'To have earned the maximum available points in this section, it was necessary to have an evaluation using Google Trends to evaluate strategy effectiveness. It was necessary for this evaluation to be fully and thoughtfully addressed, including all details.'),
+    ('Speaker Notes are Clear, Concise and Appropriate to the Audience', TRUE, 'Exemplary', 'Thank you for your excellence in this area.'),
+    ('Speaker Notes are Clear, Concise and Appropriate to the Audience', FALSE, 'Exemplary', 'To have earned the maximum available points in this rubric element it was necessary to have work that had speaker’s notes. The notes should have been clear and concise and includes all key details.'),
+    ('PowerPoint is Well-Constructed Including Engaging Visual Aids', TRUE, 'Exemplary', 'You did excellent work in this rubric element.  Nice. '),
+    ('PowerPoint is Well-Constructed Including Engaging Visual Aids', FALSE, 'Exemplary', 'To have earned the maximum available points in this rubric element, it was necessary to have PowerPoint that was well constructed and included engaging visual aids. A well constructed presentation includes things like pictures, figures, tables, or other visual elements. A well constructed presentation also has no more than 4 or 5 lines of text per slide.'),
+    -- FIXME: ONly reason this is here is because for only assignment 6 the name of this element is "Grammar and Spelling"
+    ('Grammar and Spelling', TRUE, 'Exemplary', 'Excellent. You did a good job with putting forward work without any grammar problems.  Well done!  If you ever think you might need some resources in this rubric element, please be sure to check out the resources available for Post University students. For instance, Post University students have Grammerly for free: Check it out here: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1'),
+    ('Grammar and Spelling', FALSE, 'Exemplary', 'The work needed to be error free to maximize points in this rubric element.  Sometimes, is is necessary to learn or relearn grammar rules.  It might be good for you to invest in this area.    Academic writing can take a little bit of work to learn. Fortunately, the school has some excellent resources available to you. For instance, Post students have Grammary for free.  Check it out here: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A6', 'MKT200'
+FROM ids;
+
+-- then insert the variables needed for any generic rubric elements used
+INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
+VALUES
+('Resources', TRUE, '{"number":"three"}', 'A6', 'MKT200'),
+('Resources', FALSE, '{"number":"three"}', 'A6', 'MKT200'),
+('Clear and Professional Writing and APA Format', TRUE, '{}', 'A6', 'MKT200'),
+('Clear and Professional Writing and APA Format', FALSE, '{}', 'A6', 'MKT200');
 
 -- course:      MKT200_37_Principles of Marketing_2019_20_TERM6
 -- assignment:  Unit 7 Assignment: Internet Security and Privacy
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Event Name with a Catchy Slogan', TRUE, 'Exemplary', 'Super. I can see your excellence in your work in this area.'),
+    ('Event Name with a Catchy Slogan', FALSE, 'Exemplary', 'To have maximized your grade in this rubric element, it was necessary to have work that included an event name and catchy slogan grab the reader’s interest and are memorable..'),
+    ('Main Topics In Seminar Including Privacy Concerns, Internet Security Issues, Ethical Concerns with Online Marketing', TRUE, 'Exemplary', 'Nicely done!  Your work is strong in this rubric element.  Very good!'),
+    ('Main Topics In Seminar Including Privacy Concerns, Internet Security Issues, Ethical Concerns with Online Marketing', FALSE, 'Exemplary', 'To have earned the most points in this section, the work needed to have a flyer with main topics covered in the seminar including privacy concerns, Internet security issues, and ethical concerns associated with online marketing at your company'),
+    ('Why Employees Should Attend: What they will get out of it, How it will Help Them with Their Job, etc.', TRUE, 'Exemplary', 'I can see your good work in this part of the rubric.  Awesome!'),
+    ('Why Employees Should Attend: What they will get out of it, How it will Help Them with Their Job, etc.', FALSE, 'Exemplary', 'To have earned the most points in section, it was important to explain why employees should attend, what they will get out of it, how it will help them at their job, etc.'),
+    ('Event Information: Time, Date, Location, etc.', TRUE, 'Exemplary', 'Very good.  I can see commitment to your studies in this rubric'),
+    ('Event Information: Time, Date, Location, etc.', FALSE, 'Exemplary', 'To have earned the maximum available points in this section, it was necessary to the event date, time, location, and other pertinent information so employees know where to go and what do to.'),
+    ('Overall Appearance of the Flyer', TRUE, 'Exemplary', 'You did a very good job with this rubric element. '),
+    ('Overall Appearance of the Flyer', FALSE, 'Exemplary', 'To have earned the maximum available points in this section, it was necessary to have a flyer with an overall attractive appearance.  This includes things such as consistent font size, pictures or other visual elements and clarity of message.')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A7', 'MKT200'
+FROM ids;
 
+-- course:      BUS311
+-- assignment:  (A1) Email Scenario Response and (A4) Writing Routine and Positive Messages
+-- assignment:  (A4) Writing Routine and Positive Messages
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Content/Substance: The assignment follows assignment directions and is substantive', TRUE, 'Exemplary', 'Super. I can see your excellence in your work because your  content  followed assignment instructions  that included  details that were relevant, on-topic and substantive.\n\nWhile you maxed out the points with this rubric element, I also want to provide you resources that might be helpful to you. Here is one: https://opentextbc.ca/writingincollege/chapter/what-does-the-professor-want-understanding-the-assignment/'),
+    ('Content/Substance: The assignment follows assignment directions and is substantive', FALSE, 'Exemplary', 'To have earned the maximum available points in this area, it was necessary to have content that followed assignment instructions and that included  details that were relevant, on-topic and substantive. I would have preferred stronger work in this area.\n\nOne of the most important elements of success for this part of the rubric is to carefully read each project element and then check these elements off as you prepare your submission. Of course, it''s also essential to match your work up with each of the rubric elements. Here''s a resource that might be helpful for you: https://opentextbc.ca/writingincollege/chapter/what-does-the-professor-want-understanding-the-assignment/'),
+    ('Organization and Subject Line', TRUE, 'Exemplary', 'Your work  put together an assignment that followed specific formatting and layout guidelines.  These included things like a subject line, a salutation, effective body text, and a signature.  Nicely done!  Your work is strong in this rubric element.  Very good!  I also want to share a resource for you in case you find it helpful: https://www.monster.com/career-advice/article/five-elements-of-effective-business-emails-hot-jobs\n\nPlease note that I''m only sharing the resource to be helpful to you. I am also not implying that you need development in this area. After all, you earned the maximum available points in the rubric element!'),
+    ('Organization and Subject Line', FALSE, 'Exemplary', 'To maximize your grade for this rubric element, it was necessary to put together an assignment that followed specific formatting and layout guidelines, these included things like a subject line, a salutation, effective body text, and a signature.  Your works seems to missing elements.  Here is a resource that you might find helpful: https://www.monster.com/career-advice/article/five-elements-of-effective-business-emails-hot-jobs')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A1', 'BUS311'
+FROM ids
+UNION
+SELECT rubric_elementsid, 'A4', 'BUS311'
+FROM ids;
 
+-- then insert the variables needed for any generic rubric elements used
+INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
+VALUES
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A1', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A1', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A4', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A4', 'BUS311'),
+('Tone', TRUE, '{}', 'A1', 'BUS311'),
+('Tone', FALSE, '{}', 'A1', 'BUS311'),
+('Tone', TRUE, '{}', 'A4', 'BUS311'),
+('Tone', FALSE, '{}', 'A4', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', TRUE, '{}', 'A4', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', FALSE, '{}', 'A4', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', TRUE, '{}', 'A1', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', FALSE, '{}', 'A1', 'BUS311');
 
+-- course:      BUS11
+-- assignment:  (A2) Creating an Effective Presentation
+-- assignment:  (A6) Listening and Non-Verbal Skills Presentation
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Meets Assignment Criteria', TRUE, 'Exemplary', 'To have earned an exemplary rating for this rubric element, the PowerPoint is proficient in all areas, which means it has 6 to 10 slides, provides a title on each slide; uses bullets correctly; includes at least three images; and cites all sources. You did an awesome job in this area. Thank you!  I also want to give you a resource if this might help you in the future. . Check out this link: https://support.office.com/en-us/article/tips-for-creating-and-delivering-an-effective-presentation-f43156b0-20d2-4c51-8345-0c337cefb88b'),
+    ('Meets Assignment Criteria', FALSE, 'Exemplary', 'To have earned an exemplary rating for this rubric element, the PowerPoint is proficient in all areas, which means it has 6 to 10 slides, provides a title on each slide; uses bullets correctly; includes at least three images; and cites all sources. It would have been good to put a bit more emphasis in this area. Here is a resource that might be helpful for you: https://support.office.com/en-us/article/tips-for-creating-and-delivering-an-effective-presentation-f43156b0-20d2-4c51-8345-0c337cefb88b'),
+    ('Visual Design', TRUE, 'Exemplary', 'You work included visual visually appealing design, clean simple layout, text is easy to read, graphics enhance understanding of idea.  Even though you earned the maximum points, I also want to make sure you can develop in this area if you wish to do so. By giving you resources, I am not at all implying that your work needs improvement. :)  You did an awesome job here.  If you could use it, here is the resource: https://learning.linkedin.com/blog/design-tips/5-best-practices-for-making-awesome-powerpoint-slides'),
+    ('Visual Design', FALSE, 'Exemplary', 'This is an area that’s an opportunity for improvement. An exemplary rating would’ve included visual visually appealing design, clean simple layout, text is easy to read, graphics enhance understanding of idea.  I would have preferred more attention in this rubric element.  Here is a resource for you: https://learning.linkedin.com/blog/design-tips/5-best-practices-for-making-awesome-powerpoint-slides'),
+    ('Organization', TRUE, 'Exemplary', 'Your work was well organized and coherent. Your topics were in logical sequence.  The work also included a clear introduction and conclusion. Putting together a flow for a presentation can be a bit challenging! Thank you for your good work.  You might also want to check out a resource that I use from time to time: https://www.slidegenius.com/blog/powerpoint-deck-structure'),
+    ('Organization', FALSE, 'Exemplary', 'To have maximized points in this rubric element, it was necessary to bring forward work that was well organized and coherent, topics needed to be in logical sequence, the work needed to include a clear introduction and conclusion. Putting together a flow for a presentation can be a bit challenging!  Here is a resource for PowerPoint flow: https://www.slidegenius.com/blog/powerpoint-deck-structure'),
+    ('Quality of Information', TRUE, 'Exemplary', 'Your work covered the topic thoroughly and included details to support the topic. Wonderful work. :-)  It can be difficult to decide what goes in a PowerPoint slide deck.  Here is a resource that I use from time to time to remind myself: https://www.thebalancecareers.com/putting-together-a-powerpoint-presentation-2917258'),
+    ('Quality of Information', FALSE, 'Exemplary', 'To have earned the maximum available points, it was necessary to cover the topic thoroughly and then also to include details that support the topic. I would have preferred a more thorough presentation that fully covered the topic. Here is a resource that might be helpful to you: https://www.thebalancecareers.com/putting-together-a-powerpoint-presentation-2917258')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A2', 'BUS311'
+FROM ids
+UNION
+SELECT rubric_elementsid, 'A6', 'BUS311'
+FROM ids;
+
+-- then insert the variables needed for any generic rubric elements used
+INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
+VALUES
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A2', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A2', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A6', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A6', 'BUS311');
+
+-- course:      BUS11
+-- assignment:  (A3) Top 5 Business Writing Tips
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Content/Substance: The assignment is substantive.', TRUE, 'Exemplary', 'Thank you for your excellence in this area. Your content addressed at least five of the areas in the prompt and it did so with relevant, on-topic, and substantive details. Super!  Blogging can be an excellent way to engage with both internal and external customers. Still, coming up with blogging ideas can be challenging. If you are going to do blogging either on the personal or professional side: here is a resource that might help: https://blog.hubspot.com/marketing/blog-post-topic-brainstorm-ht'),
+    ('Content/Substance: The assignment is substantive.', FALSE, 'Exemplary', 'To have earned the maximum available points for this rubric element, it was necessary to address at least five of the content areas in the prompt and then also to have relevant and on topic details. Blogging can be an excellent way to engage with both internal and external customers. Still, coming up with blogging ideas can be challenging. If you are going to do blogging either on the personal or professional side: here is a resource that might help: https://blog.hubspot.com/marketing/blog-post-topic-brainstorm-ht'),
+    ('Organization', TRUE, 'Exemplary', 'You used a blog format and the structure substantially communicates a clear message. Wonderful work! If you intend to blog for either personal or professional purposes, you might want to check out this helpful resource about blogging formats: https://www.successfulblogging.com/16-rules-of-blog-writing-which-ones-are-you-breaking/'),
+    ('Organization', FALSE, 'Exemplary', 'This is an area that’s an opportunity for improvement. An exemplary rating would’ve included visual visually appealing design, clean simple layout, text is easy to read, graphics enhance understanding of idea.  I would have preferred more attention in this rubric element.  Here is a resource for you: https://learning.linkedin.com/blog/design-tips/5-best-practices-for-making-awesome-powerpoint-slides')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A3', 'BUS311'
+FROM ids;
+
+-- then insert the variables needed for any generic rubric elements used
+INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
+VALUES
+('Tone', TRUE, '{}', 'A3', 'BUS311'),
+('Tone', FALSE, '{}', 'A3', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', TRUE, '{}', 'A3', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', FALSE, '{}', 'A3', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A3', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A3', 'BUS311');
+
+-- course:      BUS11
+-- assignment:  (A5) Persuasive and Negative Messages
+-- assignment:  (A7) Doing Business In...
+
+WITH ids as (
+    INSERT INTO rubric_elements (title, is_max_scoring, max_scoring_keyword, response)
+    VALUES
+    ('Content/Substance: The assignment follows assignment directions and is substantive', TRUE, 'Exemplary', 'Super. I can see your excellence in your work because your  content  followed assignment instructions  that included  details that were relevant, on-topic and substantive.\n\nWhile you maxed out the points with this rubric element, I also want to provide you resources that might be helpful to you. Here is one: https://opentextbc.ca/writingincollege/chapter/what-does-the-professor-want-understanding-the-assignment/'),
+    ('Content/Substance: The assignment follows assignment directions and is substantive', FALSE, 'Exemplary', 'To have earned the maximum available points in this area, it was necessary to have content that followed assignment instructions and that included  details that were relevant, on-topic and substantive. I would have preferred stronger work in this area.\n\nOne of the most important elements of success for this part of the rubric is to carefully read each project element and then check these elements off as you prepare your submission. Of course, it''s also essential to match your work up with each of the rubric elements. Here''s a resource that might be helpful for you: https://opentextbc.ca/writingincollege/chapter/what-does-the-professor-want-understanding-the-assignment/'),
+    ('Organization', TRUE, 'Exemplary', 'Your work  put together an assignment that followed specific formatting and layout guidelines.   Nicely done!  Your work is strong in this rubric element.  Very good!  I also want to share a resource for you in case you find it helpful: https://blog.hubspot.com/marketing/how-write-memo\n\nPlease note that I''m only sharing the resource to be helpful to you. I am also not implying that you need development in this area. After all, you earned the maximum available points in the rubric element!'),
+    ('Organization', FALSE, 'Exemplary', 'To have maximized your grade in this rubric element, it was necessary to prepare work following a memo format. I cannot discern a memo format in your project.  Here is a helpful resource about how to write a memo: https://blog.hubspot.com/marketing/how-write-memo')
+    RETURNING rubric_elementsid
+)
+INSERT INTO assignments_rubric_elements (rubric_elementsid, assignmentsid, coursesid)
+SELECT rubric_elementsid, 'A5', 'BUS311'
+FROM ids
+UNION
+SELECT rubric_elementsid, 'A7', 'BUS311'
+FROM ids;
+
+-- then insert the variables needed for any generic rubric elements used
+INSERT INTO assignments_generic_rubric_elements (title, is_max_scoring, variables, assignmentsid, coursesid)
+VALUES
+('Tone', TRUE, '{}', 'A5', 'BUS311'),
+('Tone', FALSE, '{}', 'A5', 'BUS311'),
+('Tone', TRUE, '{}', 'A7', 'BUS311'),
+('Tone', FALSE, '{}', 'A7', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', TRUE, '{}', 'A5', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', FALSE, '{}', 'A5', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', TRUE, '{}', 'A7', 'BUS311'),
+('Sentence Structure, Word Choice, and Transitions', FALSE, '{}', 'A7', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A5', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A5', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', TRUE, '{}', 'A7', 'BUS311'),
+('Grammar, Punctuation, and Spelling: Error free writing.', FALSE, '{}', 'A7', 'BUS311');
