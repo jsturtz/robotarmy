@@ -1,6 +1,7 @@
 '''
 Put any common database tools here
 '''
+from collections import OrderedDict
 
 def query(con, query):
     cur = con.cursor()
@@ -14,17 +15,18 @@ def queryOneVal(con, query):
     cur.execute(query)
     rows = cur.fetchone()
     cur.close()
-    return rows[0]
+    return rows[0] if rows else None
 
-# FIXME: kinda shit function. User has to access columns they request by index they provide
-def query_grouped_by_dict(con, table, grouped_by, columns):
+# returns data structure where user can access each group by key and then each column in the group by key
+def query_grouped_by_dict(con, table, grouped_by, columns="*", where="", order_by=""):
     cur = con.cursor()
-    cur.execute(f"SELECT %s, %s FROM %s ORDER BY %s;" % (grouped_by, ", ".join(columns), table, grouped_by) )
+    cur.execute(f"SELECT %s, %s FROM %s %s %s;" % (grouped_by, ", ".join(columns), table, where, order_by) )
     rows = cur.fetchall()
-    return_dict = {key: [] for key in set([row[0] for row in rows])}
-
-    for row in rows:
-        return_dict[row[0]].append(row[1:])
+    # ensure orderedict gets values inserted in right order
+    return_dict = OrderedDict()
+    for head, *tail in rows:
+        return_dict.setdefault(head, [])
+        return_dict[head].append({col: tail[i] for i, col in enumerate(columns)})
     cur.close()
     return return_dict
 

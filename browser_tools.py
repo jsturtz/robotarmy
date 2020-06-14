@@ -17,7 +17,6 @@ class Actions(ActionChains):
 
 def safely_click(driver, elem):
     driver.execute_script("arguments[0].scrollIntoView();", elem)
-    #time.sleep(0.5)
     WebDriverWait(driver, 10).until(EC.visibility_of(elem))
     elem.click()
 
@@ -36,3 +35,13 @@ def get_text_excluding_children(driver, element):
 
 def replace_newlines(s):
     return s.replace('\\n', Keys.ENTER)
+
+def element_exists(driver, by, identifier):
+    driver.implicitly_wait(1)
+    try:
+        driver.find_elements(by, identifier)
+        driver.implicitly_wait(10)
+        return True
+    except:
+        driver.implicitly_wait(10)
+        return False

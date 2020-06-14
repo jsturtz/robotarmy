@@ -74,21 +74,27 @@ CREATE TABLE assignments_generic_rubric_elements (
 -- holds rubric element info for assignments
 CREATE TABLE assignments_rubric_elements (
     assignments_rubric_elementsid SERIAL PRIMARY KEY,
+    coursesid TEXT NOT NULL,
+    assignmentsid TEXT NOT NULL,
     title TEXT NOT NULL,
     response TEXT NOT NULL,
     rank INT NOT NULL,
-    assignmentsid TEXT NOT NULL,
-    coursesid TEXT NOT NULL,
+    rank_name TEXT,
     FOREIGN KEY (assignmentsid, coursesid) REFERENCES assignments(assignmentsid, coursesid)
 );
 
 -- holds rubric element info for universities
 CREATE TABLE universities_rubric_elements (
     universities_rubric_elementsid SERIAL PRIMARY KEY,
+    universitiesid TEXT NOT NULL,
     title TEXT NOT NULL,
     response TEXT NOT NULL,
     rank INT NOT NULL,
-    universitiesid TEXT NOT NULL,
+    rank_name TEXT,
+    percent_total NUMERIC(3, 2),
+    rank_modifier NUMERIC(3, 2),
+    visible_category TEXT,
+    visible_order INT,
     FOREIGN KEY (universitiesid) REFERENCES universities(universitiesid)
 );
 
@@ -120,19 +126,22 @@ CREATE TABLE assignments_links (
 
 INSERT INTO robots (robot, method, button)
 VALUES
-('Grader', 'grade', 'Grade Class'),
+('LoginSelector', 'login', 'Login'),
+('GraderSelector', 'grade', 'Grade Class'),
 ('QuickLinks', 'display_links', 'Quick Links');
 
 -- Make the id uppper case. Right now I'm looking up the universitiesid by looking at the URL
 INSERT INTO universities (universitiesid, pretty_name, summative_feedback)
 VALUES
 ('POST', 'Post University', '{name}\n\nThank you for your work with this learning activity. Please review my remarks in the rubric for more information about your grade.  Remember, I am invested in you and in your success.  Please be sure to reach out to me if you need help.  :)\n\nDr. Sturtz'),
-('GCU', 'Grand Canyon University', ''); -- FIXME: GIVE ME THE FUCKING SHIT
+('GCU', 'Grand Canyon University', ''), -- FIXME: Summative feedback?
+('CTU', 'Colorado Technical University', '');
 
 INSERT INTO universities_links (universitiesid, pretty_name, url)
 VALUES
 ('POST', 'Home', 'https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_646_1'),
 ('GCU', 'Home', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn#/learningPlatform/dashboardWidget/dashboardWidget.lc?operation=getUserDashBoard&classSpecific=true&c=prepareUserDashBoard&t=homeMenuOption&tempDate=1591922913590');
+-- FIXME: ('GCU', 'Home', '<add home link>');
 
 INSERT INTO courses (coursesid, universitiesid, pretty_name, ui_identifier)
 VALUES
@@ -203,11 +212,35 @@ VALUES
 ('POST', 'Active Participation', 1, 'Thank you for the awesome work with your active participation! By actively participating in the ongoing discussion boards, you maximize your learning. This better prepares you for the rest of your program. Well done.'),
 ('POST', 'Active Participation', 2, 'Please review the engagement requirements. Remember, you earn points by posting an initial reply to the discussion question and then you also earn points by engaging with your peers through participation posts.\n\nTo maximize your grade, it''s important to both meet minimum number of expected participation posts and then it''s also important that your participation posts are of a sufficient quality to add substantively to our ongoing discussion.'),
 ('POST', 'Timely Participation', 1, 'Thank you for your excellence in the area of timely participation and engagement. By taking this approach, you maximize your learning and then you also earn the highest possible points in this rubric element. :-)'),
-('POST', 'Timely Participation', 2, 'This rubric element looks at the timing of your participation.   At a minimum, your participation posts should be in by Saturday each unit to maximize your point in this rubric element.\n\nBy fully engaging in the work through participation and then posting on time in the courseroom,  you are creating the best opportunity for your own learning.'),
-('GCU', 'Resources', 1, ''),
-('GCU', 'Resources', 2, ''),
-('GCU', 'Substantive', 1, ''),
-('GCU', 'Substantive', 2, '');
+('POST', 'Timely Participation', 2, 'This rubric element looks at the timing of your participation.   At a minimum, your participation posts should be in by Saturday each unit to maximize your point in this rubric element.\n\nBy fully engaging in the work through participation and then posting on time in the courseroom,  you are creating the best opportunity for your own learning.');
+
+INSERT INTO universities_rubric_elements (universitiesid, title, rank, percent_total, rank_modifier, rank_name, visible_category, visible_order,  response)
+VALUES
+('GCU', 'Content',      1, 0.3, 1.0, 'Super duper Content', 'CONTENT IS SUBSTANTIVE', 1, 'Content is super duper'),
+('GCU', 'Content',      2, 0.3, 0.5, 'Whatever', 'CONTENT IS SUBSTANTIVE', 1, 'Content is whatever'),
+('GCU', 'Content',      3, 0.3, 0.0, 'GROOOOOSS', 'CONTENT IS SUBSTANTIVE', 1, 'content is GROOOOOOss'),
+('GCU', 'Organization', 1, 0.2, 1.0, 'Super duper Organization', 'CONTENT IS SUBSTANTIVE', 1, 'Organization is super duper'),
+('GCU', 'Organization', 2, 0.2, 0.5, 'Decent organization', 'CONTENT IS SUBSTANTIVE', 1, 'Organization is whatever'),
+('GCU', 'Organization', 3, 0.2, 0.0, 'GROOOOSS org', 'CONTENT IS SUBSTANTIVE', 1, 'Organization is GROOOOOOss'),
+('GCU', 'Grammar',      1, 0.3, 1.0, 'Super duper', 'GRAMMAR', 2, 'The Grammar is super duper'),
+('GCU', 'Grammar',      2, 0.3, 0.5, 'Not so super', 'GRAMMAR', 2, 'The grammar is not so super'),
+('GCU', 'Grammar',      3, 0.3, 0.0, 'Super bad', 'GRAMMAR', 2, 'Need to work on that grammar my dude'),
+('GCU', 'Sources',      1, 0.2, 1.0, 'Super duper', 'RESOURCES', 3, 'The Grammar is super duper'),
+('GCU', 'Sources',      2, 0.2, 0.5, 'Not so super', 'RESOURCES', 3, 'The grammar is not so super'),
+('GCU', 'Sources',      3, 0.2, 0.0, 'Missing citations and shit', 'RESOURCES', 3, 'Missing citations which is somehow grammar related bro');
+
+
+-- This is the actual logic for GCU. Above is just a test for CTU style logic when I get around to fixing all the robots
+-- Full points response for those with sources
+    -- Angela , Thank you for your work with this learning activity.  Your initial reply to this discussion question was robust and it included citations.  These are the two main ways to maximize both your grade and your learning.  Well done!
+-- 3.5 for lacking sources
+    -- Terrance, Thank you for your work with this learning activity. You have a good start here. I also recommend that, in future discussion question responses, you include citations in your initial reply. These should be in you the text and in a corresponding reference list.
+-- 3.5 for not being robust
+    -- Nikki Thank you for your work with this learning activity. You have a good start here. To earn the maximum available points, it's necessary to have a more robust initial reply.
+-- need one for 2.0 I would guess
+
+-- No sources needed, full points
+-- Alissa , Thank you for your work with this learning activity. Almost always, discussion question should come with at least one robust citation in the text and then also in matching reference list entry. In this case, and in the case with our other discussion question, the topics are more about personal experience. As such, citations are not necessary. Thank you for your good work!
 
 -- RUBRIC ELEMENTS FOR ASSIGNMENTS
 
