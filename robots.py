@@ -33,11 +33,18 @@ class LoginSelector:
             self.pass_elem = self.driver.find_element_by_id('passwrd')
             self.submit_btn = self.driver.find_element_by_id('myFormLogin')
 
+        elif 'snhu' in self.driver.current_url:
+            self.config = util.get_config()['snhu']
+            self.user_elem = self.driver.find_element_by_id('input_1')
+            self.pass_elem = self.driver.find_element_by_id('input_2')
+            self.submit_btn = self.driver.find_element_by_id('SubmitCreds')
+
     def login(self):
         self.user_elem.clear()
         self.pass_elem.clear()
         self.user_elem.send_keys(self.config["username"])
         self.pass_elem.send_keys(self.config["password"])
+        self.submit_btn.click()
         br.safely_click(self.driver, self.submit_btn)
 
 class GraderSelector:
@@ -130,7 +137,7 @@ class RubricElemGrader(ABC):
     @abstractmethod
     def send_feedback(self, elem, response):
         elem.clear()
-        elem.send_keys(br.replace_newlines(response))
+        br.send_keys(self.driver, elem, br.replace_newlines(response))
 
     def build_radio_selector_layout(self, rubric_elems, max_scoring_keyword):
         layout = []
@@ -191,7 +198,7 @@ class RubricElemGrader(ABC):
                         self.send_feedback(elem["feedback"], response)
 
                     # submit summative feedback
-                    summative_elem.send_keys(br.replace_newlines(summative_response))
+                    br.send_keys(self.driver, summative_elem, br.replace_newlines(summative_response))
 
                     # submit button!
                     # FIXME: Remove uncomment for actual production
@@ -364,7 +371,7 @@ class LoudCloudAssignmentGrader(RubricElemGrader):
     # else, just use the default method in the base class
     def send_feedback(self, elem, response):
         if self.is_discussion_post:
-            elem.send_keys(response)
+            br.send_keys(self.driver, elem, response)
         else:
             super().send_feedback(elem, response)
 
@@ -416,9 +423,9 @@ class SingleBoxGrader(ABC):
                 if event == 'Submit':
                     response, score = self.get_response_and_score(values)
                     feedback_elem.clear()
-                    feedback_elem.send_keys(br.replace_newlines(response))
+                    br.send_keys(self.driver, feedback_elem, br.replace_newlines(response))
                     score_elem.clear()
-                    score_elem.send_keys(score)
+                    br.send_keys(self.driver, score_elem, score)
                     # br.safely_click(submit_btn)
             except Exception as e:
                 ui.error_window(e)

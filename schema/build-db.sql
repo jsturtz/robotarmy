@@ -135,12 +135,15 @@ INSERT INTO universities (universitiesid, pretty_name, summative_feedback)
 VALUES
 ('POST', 'Post University', '{name}\n\nThank you for your work with this learning activity. Please review my remarks in the rubric for more information about your grade.  Remember, I am invested in you and in your success.  Please be sure to reach out to me if you need help.  :)\n\nDr. Sturtz'),
 ('GCU', 'Grand Canyon University', ''), -- FIXME: Summative feedback?
-('CTU', 'Colorado Technical University', '');
+('CTU', 'Colorado Technical University', ''),
+('SNHU', 'Southern New Hampshire University', '');
+-- FIXME: ('GCU', 'Home', '<add home link>');
 
 INSERT INTO universities_links (universitiesid, pretty_name, url)
 VALUES
 ('POST', 'Home', 'https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_646_1'),
-('GCU', 'Home', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn#/learningPlatform/dashboardWidget/dashboardWidget.lc?operation=getUserDashBoard&classSpecific=true&c=prepareUserDashBoard&t=homeMenuOption&tempDate=1591922913590');
+('GCU', 'Home', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn#/learningPlatform/dashboardWidget/dashboardWidget.lc?operation=getUserDashBoard&classSpecific=true&c=prepareUserDashBoard&t=homeMenuOption&tempDate=1591922913590'),
+('SNHU', 'Home', 'https://my.snhu.edu/');
 -- FIXME: ('GCU', 'Home', '<add home link>');
 
 INSERT INTO courses (coursesid, universitiesid, pretty_name, ui_identifier)
@@ -156,6 +159,7 @@ VALUES
 ('Announcements', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94961_1&handle=cp_announcements&mode=cpview'),
 ('Grading Center', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94961_1&cvid=fullGC'),
 ('Grading Center', 'LDR655', 'GCU', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d#/learningPlatform/class/content.lc?operation=getClassGradeBook&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d&c=prepareClassGradeBook&forAdmin=false&isFromInstructorProgressTab=true&t=gradeBookMenuOption&tempDate=1591923342076');
+
 
 INSERT INTO assignments (assignmentsid, coursesid, universitiesid, ui_identifier, summative_feedback)
 VALUES

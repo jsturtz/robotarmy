@@ -6,6 +6,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pyperclip
 
 import time
 import re
@@ -18,7 +19,13 @@ class Actions(ActionChains):
 def safely_click(driver, elem):
     driver.execute_script("arguments[0].scrollIntoView();", elem)
     WebDriverWait(driver, 10).until(EC.visibility_of(elem))
-    elem.click()
+    driver.execute_script("arguments[0].click()", elem)
+    # FIXME: THIS BULLSHIT HAS TO END
+    # elem.click()
+
+def send_keys(driver, elem, s):
+    pyperclip.copy(s)
+    elem.send_keys(Keys.LEFT_CONTROL, 'v')
 
 def get_text_excluding_children(driver, element):
     return driver.execute_script("""

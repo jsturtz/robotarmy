@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c2b549d8ace4060309cf13a22dc273c39da60f920820cecfc8ae7a8b2393b263"
+            "sha256": "69bf93707338ecc2298b1d136f688489e5234e86d7f0ba706d6bf5defcb2237c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -35,13 +35,20 @@
             "index": "pypi",
             "version": "==2.8.5"
         },
-        "pysimplegui": {
+        "pyperclip": {
             "hashes": [
-                "sha256:3916c610f7c614028ada7f42da05ab17840d67ceba2c132a57fb532085b6a6a5",
-                "sha256:68750dc40d802db04087d34103bdc656402fb0f781dc4f00bf6a8593c9f118b2"
+                "sha256:b75b975160428d84608c26edba2dec146e7799566aea42c1fe1b32e72b6028f2"
             ],
             "index": "pypi",
-            "version": "==4.19.0"
+            "version": "==1.8.0"
+        },
+        "pysimplegui": {
+            "hashes": [
+                "sha256:56a05428a528e07da90dbf999ed5de72153728a6c82cac92a0beb81e88d1dd77",
+                "sha256:f37ca196a759a02a3175877b626016dc892851771b116988b21a97fe1ec30a73"
+            ],
+            "index": "pypi",
+            "version": "==4.20.0"
         },
         "selenium": {
             "hashes": [

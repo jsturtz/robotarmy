@@ -9,6 +9,7 @@ verify_ssl = true
 selenium = "*"
 pysimplegui = "*"
 psycopg2 = "*"
+pyperclip = "*"
 
 [requires]
 python_version = "3.6"
