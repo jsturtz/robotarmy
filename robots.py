@@ -69,7 +69,10 @@ class GraderSelector:
 
     def grade(self):
         self.robot.grade()
-
+'''
+Base class that represents a browser screen with multiple rubric elements, multiple individual feedback boxes, 
+and a summative feedback box. 
+'''
 class RubricElemGrader(ABC):
 
     def __init__(self, driver, con):
@@ -207,6 +210,10 @@ class RubricElemGrader(ABC):
             except Exception as e:
                 ui.error_window(e)
 
+'''
+Concrete class that implements RubricElemGrader
+Will only work on blackboard sites. Grades both discussion posts and assignments
+'''
 class BlackboardGrader(RubricElemGrader):
 
     def __init__(self, driver, con):
@@ -313,6 +320,10 @@ class BlackboardGrader(RubricElemGrader):
     def send_feedback(self, elem, response):
         super().send_feedback(elem, response)
 
+'''
+FIXME: Broken ass shit
+Implements RubricElemGrader. Works on Loud Cloud assignments with rubric elements
+'''
 class LoudCloudAssignmentGrader(RubricElemGrader):
 
     def __init__(self, driver, con):
@@ -377,7 +388,7 @@ class LoudCloudAssignmentGrader(RubricElemGrader):
 
 
 '''
-    Grades assignments that have a single box for feedback and a single grade to submit
+Base class that will grade assignments that have a single box for feedback and a single score to  submit
 '''
 class SingleBoxGrader(ABC):
 
@@ -430,6 +441,11 @@ class SingleBoxGrader(ABC):
             except Exception as e:
                 ui.error_window(e)
 
+'''
+Base class that implements SingleBoxGrader
+Use this whenever you have behind-the-scenes rubrics that map to visible rubric elements and when
+you want to send its particular formatted content in the feedback box.
+'''
 class SingleBoxV1(SingleBoxGrader):
 
     def __init__(self, driver, con, universitiesid):
@@ -438,7 +454,7 @@ class SingleBoxV1(SingleBoxGrader):
         self.con = con
         self.universitiesid = universitiesid
 
-        # get rubric elems from database
+        # this base class depends on having the right data in universities_rubric_elements
         self.rubric_elems = db.query_grouped_by_dict(
             self.con,
             table="universities_rubric_elements",
@@ -447,14 +463,15 @@ class SingleBoxV1(SingleBoxGrader):
             where=f"WHERE universitiesid = '{self.universitiesid}'",
             order_by="ORDER BY visible_order, title, rank")
 
-        # FIXME: get student name from page
+        # FIXME: THis should not be in this base class. Should be in the derived class
         self.student_name = self.driver.find_element_by_xpath('//div[contains(@class, "selectedstudentSelectGroup")]//span').text.split(" ")[0]
 
-        # FIXME: get total possible points for this assignments
+        # FIXME: This should not be in this base class. Should be in the derived class
         self.total_points = int(self.driver.find_element_by_xpath('//span[contains(@class, "lcs_totalScorelabel")]').text.split(" ")[1])
 
         super().__init__(self.driver, self.con)
-
+    
+    # layout fully dependent on self.rubric_elems. Builds a basic radio UI layout
     def get_layout(self):
         layout = []
         for title, rows in self.rubric_elems.items():
@@ -466,6 +483,7 @@ class SingleBoxV1(SingleBoxGrader):
         layout.append([sg.Submit()])
         return layout
 
+    # the "values" is the output from the UI
     def get_response_and_score(self, values):
 
         responses = []
@@ -522,6 +540,10 @@ class SingleBoxV1(SingleBoxGrader):
         score_string = str(int(total_score))
         return response_string, score_string
 
+'''
+Concrete class that implements SingleBoxV1
+Works to grade any Loud Cloud course (i.e. courses at GCU)
+'''
 class LoudCloudV1(SingleBoxV1):
 
     def __init__(self, driver, con):
@@ -547,6 +569,9 @@ class LoudCloudV1(SingleBoxV1):
     def get_submit_btn(self):
         return self.driver.find_element_by_xpath("//button[contains(@class, 'pub')]")
 
+'''
+Class that will generate UI to display links in universities_links, courses_links, and assignment_links
+'''
 class QuickLinks:
 
     def __init__(self, driver, con):
