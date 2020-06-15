@@ -30,7 +30,9 @@ def get_chrome_driver():
     options = webdriver.ChromeOptions()
     profile_path = config["selenium"]["chrome-profile"]
     options.add_argument(f"user-data-dir={profile_path}")
-    return webdriver.Chrome(options=options)
+    # FIXME: set up account different from usual profile
+    # return webdriver.Chrome(options=options)
+    return webdriver.Chrome()
 
 def same_string(str1, str2):
     return str1.lower().strip() == str2.lower().strip()
