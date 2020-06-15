@@ -41,7 +41,9 @@ def get_text_excluding_children(driver, element):
     """, element)
 
 def replace_newlines(s):
-    return s.replace('\\n', Keys.ENTER)
+    # return s
+    # return s.replace('\\n', Keys.ENTER)
+    return s.replace('\\n', '\r\n')
 
 def element_exists(driver, by, identifier):
     driver.implicitly_wait(1)
