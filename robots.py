@@ -12,6 +12,7 @@ import util
 from abc import ABC, abstractmethod, abstractproperty
 from selenium.webdriver.common.by import By
 from collections import OrderedDict
+import functools
 
 class LoginSelector:
 
@@ -38,6 +39,12 @@ class LoginSelector:
             self.user_elem = self.driver.find_element_by_id('input_1')
             self.pass_elem = self.driver.find_element_by_id('input_2')
             self.submit_btn = self.driver.find_element_by_id('SubmitCreds')
+            
+        elif 'coloradotech' in self.driver.current_url:
+            self.config = util.get_config()['ctu']
+            self.user_elem = self.driver.find_element_by_xpath('//input[@type="text"]')
+            self.pass_elem = self.driver.find_element_by_xpath('//input[@type="password"]')
+            self.submit_btn = self.driver.find_element_by_xpath('//button[contains(text(), "Log In")]')
 
     def login(self):
         self.user_elem.clear()
@@ -64,6 +71,9 @@ class GraderSelector:
                 self.robot = LoudCloudV1(self.driver, self.con)
             else:
                 self.robot = LoudCloudAssignmentGrader(self.driver, self.con)
+                
+        elif "coloradotech" in self.driver.current_url:
+            self.robot = ColoradoTechGrader(self.driver, self.con)
         else:
             raise Exception("No robots were found for grading this page (is your browser currently on the right URL?)")
 
@@ -398,16 +408,12 @@ class SingleBoxGrader(ABC):
         self.con = con
 
     @abstractmethod
-    def get_feedback_elem(self):
-        raise NotImplementedError("You must create a function to get feedback box from page")
+    def send_feedback(self):
+        raise NotImplementedError("You must create a function to send feedback to the page")
 
     @abstractmethod
-    def get_score_elem(self):
-        raise NotImplementedError("You must create a function to get score elem from page")
-
-    @abstractmethod
-    def get_submit_btn(self):
-        raise NotImplementedError("You must create a function to get the submit button")
+    def send_score(self):
+        raise NotImplementedError("You must create a function to send score to the page")
 
     @abstractmethod
     def get_layout(self):
@@ -419,11 +425,7 @@ class SingleBoxGrader(ABC):
 
     def grade(self):
 
-        feedback_elem = self.get_feedback_elem()
-        score_elem = self.get_score_elem()
-        submit_btn = self.get_submit_btn()
         layout = self.get_layout()
-
         window = sg.Window("Select grades", layout)
         while True:
             try:
@@ -433,11 +435,8 @@ class SingleBoxGrader(ABC):
 
                 if event == 'Submit':
                     response, score = self.get_response_and_score(values)
-                    feedback_elem.clear()
-                    br.send_keys(self.driver, feedback_elem, br.replace_newlines(response))
-                    score_elem.clear()
-                    br.send_keys(self.driver, score_elem, score)
-                    # br.safely_click(submit_btn)
+                    self.send_feedback(response)
+                    self.send_score(score)
             except Exception as e:
                 ui.error_window(e)
 
@@ -448,38 +447,49 @@ you want to send its particular formatted content in the feedback box.
 '''
 class SingleBoxV1(SingleBoxGrader):
 
-    def __init__(self, driver, con, universitiesid):
+    def __init__(self, driver, con):
 
         self.driver = driver
         self.con = con
-        self.universitiesid = universitiesid
+        self.student_name = self.get_student_name()
+        self.total_points = self.get_total_points()
+        self.universitiesid = self.get_universitiesid()
 
         # this base class depends on having the right data in universities_rubric_elements
         self.rubric_elems = db.query_grouped_by_dict(
             self.con,
             table="universities_rubric_elements",
             grouped_by="title",
-            columns=["rank", "rank_name", "rank_modifier", "percent_total", "response", "visible_category", "visible_order"],
+            columns=["rank", "rank_name", "rank_modifier", "percent_total", "response", "title_order", "title", "is_radio"],
             where=f"WHERE universitiesid = '{self.universitiesid}'",
-            order_by="ORDER BY visible_order, title, rank")
-
-        # FIXME: THis should not be in this base class. Should be in the derived class
-        self.student_name = self.driver.find_element_by_xpath('//div[contains(@class, "selectedstudentSelectGroup")]//span').text.split(" ")[0]
-
-        # FIXME: This should not be in this base class. Should be in the derived class
-        self.total_points = int(self.driver.find_element_by_xpath('//span[contains(@class, "lcs_totalScorelabel")]').text.split(" ")[1])
-
+            order_by="ORDER BY title_order, rank")
+           
         super().__init__(self.driver, self.con)
+       
+    def get_student_name(self):
+        raise NotImplementedError("You must provide a function to get student name")
+    
+    def get_total_points(self):
+        raise NotImplementedError("You must provide a function to get total points for assignment")
+    
+    def get_universitiesid(self):
+        raise NotImplementedError("You must provide a function to get universitiesid")
     
     # layout fully dependent on self.rubric_elems. Builds a basic radio UI layout
     def get_layout(self):
         layout = []
         for title, rows in self.rubric_elems.items():
             layout.append([sg.Text(title)])
-            top, *others = rows
-            radios = [sg.Radio(top["rank_name"], group_id=f"{title}", key=f"{top['rank']}-{title}", default=True)]
-            radios += [sg.Radio(cols["rank_name"], group_id=f"{title}", key=f"{cols['rank']}-{title}") for cols in others]
-            layout.append(radios)
+            if rows[0]["is_radio"]:
+                top, *others = rows
+                radios = [sg.Radio(top["rank_name"], group_id=f"{title}", key=f"{top['rank']}-{title}", default=True)]
+                radios += [sg.Radio(cols["rank_name"], group_id=f"{title}", key=f"{cols['rank']}-{title}") for cols in others]
+                layout.append(radios)
+            else:
+                for row in rows:
+                    # ignore rank modifier 0 because that indicates full points
+                    if row["rank_modifier"] > 0:
+                        layout.append([sg.Checkbox(row["rank_name"], default=False, key=f"{row['rank']}-{title}")])
         layout.append([sg.Submit()])
         return layout
 
@@ -492,41 +502,73 @@ class SingleBoxV1(SingleBoxGrader):
 
         # loop over each rubric element to calculate score and response for each visible category
         for title, rows in self.rubric_elems.items():
+            
+            # check if radio or checkbox
+            if rows[0]["is_radio"]:
+                
+                # get chosen radio for this title from values
+                selected_rank = [key for key, val in values.items() if title in key and val][0].split('-')[0]
 
-            # get chosen key for this title from values
-            selected_rank = [key for key, val in values.items() if title in key and val][0].split('-')[0]
+                # use selected rank and title to lookup record
+                record = [row for row in rows if row['rank'] == int(selected_rank)][0]
 
-            # use selected rank and title to lookup record
-            record = [row for row in rows if row['rank'] == int(selected_rank)][0]
-
-            # calculate scores
-            total_possible_score = record["percent_total"] * self.total_points
-            actual_score = total_possible_score * record["rank_modifier"]
-            visible_category = record["visible_category"]
-            response = record["response"]
-
-            # set key in visible_categories and append response and score data
-            visible_categories.setdefault(visible_category, {"total_possible_score": 0, "actual_score": 0, "responses": []})
-
-            # add scores and response to visible_categories dictionary
-            visible_categories[visible_category]["total_possible_score"] += total_possible_score
-            visible_categories[visible_category]["actual_score"] += actual_score
-            visible_categories[visible_category]["responses"].append(response)
-
+                # add scores and response to visible_categories dictionary
+                visible_categories[title] = {}
+                total_possible_score = record["percent_total"] * self.total_points
+                visible_categories[title]["total_possible_score"] = total_possible_score
+                visible_categories[title]["actual_score"] = total_possible_score * record["rank_modifier"]
+                visible_categories[title]["responses"] = [record["response"]]   # keep as list for consistency below
+                
+            else: 
+                # calculate total score first and set actual to total possible if key not already in visible categories
+                total_possible_score = rows[0]["percent_total"] * self.total_points
+                visible_categories.setdefault(title, {"total_possible_score": total_possible_score, "actual_score": total_possible_score, "responses": []})
+                
+                # get all checked boxes (checked boxes represent points to be subtracted from total)
+                selected_ranks = [key.split('-')[0] for key, val in values.items() if title in key and val]
+                
+                # in no checkboxes selected, only add a response indicating full points 
+                if not selected_ranks:
+                    # get full points response
+                    full_points_response = [row["response"] for row in rows if int(row["rank_modifier"]) == 0][0]
+                    visible_categories[title]["responses"].append(full_points_response)
+                    
+                # iterate over ranks
+                for rank in selected_ranks:
+                    
+                    # use selected rank to lookup record
+                    record = [row for row in rows if row['rank'] == int(rank)][0]
+                    
+                    # then compute the score reduction and re-assign actual score 
+                    score_reduction = total_possible_score * (1 - record["rank_modifier"])     # subtract modifier from total
+                    response = record["response"]
+                    
+                    # reduce actual score and add response for this checkbox item
+                    visible_categories[title]["actual_score"] -= score_reduction
+                    visible_categories[title]["responses"].append(response)
+        
+        # calculate total score
+        scores = [val["actual_score"] for key, val in visible_categories.items()]
+        total_score = str(int(functools.reduce(lambda a,b : a+b, scores)))
+        
         # build up responses list
-        responses.append(f"Hi {self.student_name},")
-        responses.append(f"Your response is graded on the following metrics: " + ", ".join(visible_categories.keys()))
-
+        responses.append(f"{self.student_name},")
+        responses.append("Thank you for your work with this learning activity. Below, I will outline your earned points for this learning activity. \
+            I will also provide feedback specific to each rubric element. Please check it out! Remember, I am invested in you and your success. \
+            Please reach out if you need anything")
+        responses.append(f"The total points you earned for this learning activity: {total_score}")
+        
         # add responses and scores from visible categories
         for category, values in visible_categories.items():
-            actual_score = values["actual_score"]
-            total_possible_score = values["total_possible_score"]
-
-            # first add subscore to total
-            total_score += actual_score
+            
+            actual_score = str(values["actual_score"]).strip('0')
+            total_possible_score = str(values["total_possible_score"]).strip('0')
 
             # then append a response for the whole category
-            responses.append(f"For rubric element {category} you earned {str(int(actual_score))} out of a total possible {str(int(total_possible_score))}")
+            # FIXME: The score calculations are wrong. Getting negative values. 
+            # FIXME: The discussion post responses need to be created somehow
+            responses.append(f'Points earned under the category "{category}": {actual_score} out of a total {total_possible_score}')
+            responses.append(f'Here is the feedback for {category}:')
 
             # then append responses for each subcategory
             for resp in values["responses"]:
@@ -535,39 +577,49 @@ class SingleBoxV1(SingleBoxGrader):
         # add closing remarks
         responses.append("I am invested in you and your success. Let me know if you have any questions.")
         responses.append("Dr. Sturtz")
-
-        response_string = "\n\n".join(responses)
-        score_string = str(int(total_score))
-        return response_string, score_string
+        total_response = "\n\n".join(responses)
+        
+        return total_response, total_score
 
 '''
 Concrete class that implements SingleBoxV1
 Works to grade any Loud Cloud course (i.e. courses at GCU)
 '''
-class LoudCloudV1(SingleBoxV1):
+class ColoradoTechGrader(SingleBoxV1):
 
     def __init__(self, driver, con):
         self.driver = driver
         self.con = con
-
-        # Determine university from url
-        m = re.search('([a-z]*)\.edu', self.driver.current_url)
-        if not m:
-            raise Exception("Could not determine university name")
-        self.universitiesid =  m.group(1).upper()
+        
+        # kinda hacky, but this will switch to last opened window (so don't fuck with other tabs before grading)
+        driver.switch_to.window(driver.window_handles[-1])
 
         # pass to base SingleBoxV1 class
-        super().__init__(self.driver, self.con, self.universitiesid)
+        super().__init__(self.driver, self.con)
+        
+    # these are specific to Colorado Tech
+    def get_universitiesid(self):
+        return 'CTU'
+    
+    def get_student_name(self):
+        return self.driver.find_element_by_xpath('//h3[contains(text(), "Comment for")]').text.split(", ")[1]
 
-    # these are specific to Loud Cloud
-    def get_feedback_elem(self):
-        return self.driver.find_element_by_class_name("lcs_textarea")
+    def get_total_points(self):
+        return int(self.driver.find_element_by_xpath('//label[contains(text(), "Points Possible")]/..').text.split(': ')[1])
 
-    def get_score_elem(self):
-        return self.driver.find_element_by_xpath("//input[contains(@class, 'lcs_scoreInput')]")
+    def send_feedback(self, feedback):
+        # iframes are nasty, so switch to iframe, then send, then switch back to main window
+        current_handle = self.driver.current_window_handle
+        iframe = self.driver.find_element_by_id('ui-tinymce-0_ifr')
+        self.driver.switch_to.frame(iframe)
+        feedback_elem = self.driver.find_element_by_id("tinymce")
+        br.send_keys(self.driver, feedback_elem, feedback)
+        self.driver.switch_to_window(current_handle)
 
-    def get_submit_btn(self):
-        return self.driver.find_element_by_xpath("//button[contains(@class, 'pub')]")
+    def send_score(self, score):
+        score_elem = self.driver.find_element_by_xpath('//form[@name="editGradeCommentForm"]//input[@name="grade"]')
+        score_elem.clear()
+        br.send_keys(self.driver, score_elem, score)
 
 '''
 Class that will generate UI to display links in universities_links, courses_links, and assignment_links
