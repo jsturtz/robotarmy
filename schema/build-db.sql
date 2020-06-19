@@ -95,6 +95,7 @@ CREATE TABLE universities_rubric_elements (
     rank_name TEXT,
     rank_modifier NUMERIC(3, 2),
     is_radio BOOLEAN,
+    is_db BOOLEAN,
     FOREIGN KEY (universitiesid) REFERENCES universities(universitiesid)
 );
 
@@ -127,8 +128,8 @@ CREATE TABLE assignments_links (
 INSERT INTO robots (robot, method, button)
 VALUES
 ('LoginSelector', 'login', 'Login'),
-('GraderSelector', 'grade', 'Grade Class'),
-('QuickLinks', 'display_links', 'Quick Links');
+('GraderSelector', 'grade', 'Grade Class');
+--('QuickLinks', 'display_links', 'Quick Links');
 
 -- Make the id uppper case. Right now I'm looking up the universitiesid by looking at the URL
 INSERT INTO universities (universitiesid, pretty_name, summative_feedback)
@@ -151,16 +152,19 @@ INSERT INTO courses (coursesid, universitiesid, pretty_name, ui_identifier)
 VALUES
 ('MKT200', 'POST', 'Principles of Marketing', 'MKT200_37_Principles of Marketing_2019_20_TERM6'),
 ('BUS311', 'POST', 'Managerial Communications', 'BUS311_31_Managerial Communications_2019_20_TERM6'),
-('LDR655', 'GCU', 'Leadership Capstone', ''); -- FIXME: need ui identifier?
+('LDR655', 'GCU', 'Leadership Capstone', ''),
+('MGM336', 'CTU', 'Management in International Business', '');
 
 INSERT INTO courses_links (pretty_name, coursesid, universitiesid, url)
 VALUES
-('Announcements', 'MKT200', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94915_1&handle=cp_announcements&mode=cpview'),
+('Home', 'MKT200', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94915_1&handle=cp_announcements&mode=cpview'),
 ('Grading Center', 'MKT200', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94915_1&cvid=fullGC'),
-('Announcements', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94961_1&handle=cp_announcements&mode=cpview'),
+('Home', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/blackboard/execute/announcement?method=search&context=course&course_id=_94961_1&handle=cp_announcements&mode=cpview'),
 ('Grading Center', 'BUS311', 'POST', 'https://post.blackboard.com/webapps/gradebook/do/instructor/enterGradeCenter?course_id=_94961_1&cvid=fullGC'),
-('Grading Center', 'LDR655', 'GCU', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d#/learningPlatform/class/content.lc?operation=getClassGradeBook&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d&c=prepareClassGradeBook&forAdmin=false&isFromInstructorProgressTab=true&t=gradeBookMenuOption&tempDate=1591923342076');
-
+('Grading Center', 'LDR655', 'GCU', 'https://lms-grad.gcu.edu/learningPlatform/user/users.lc?operation=loggedIn&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d#/learningPlatform/class/content.lc?operation=getClassGradeBook&classId=ac0c13e3-6432-42e3-852a-0d2b48b6d96d&c=prepareClassGradeBook&forAdmin=false&isFromInstructorProgressTab=true&t=gradeBookMenuOption&tempDate=1591923342076'),
+('Home', 'MGM336', 'CTU', 'https://studentlogin.coloradotech.edu/UnifiedPortal/3/6/?skipHybridRedirect=1#/class/211953'),
+-- FIXME: Just temporary for testing
+('Assignment Example', 'MGM336', 'CTU', 'https://studentlogin.coloradotech.edu/UnifiedPortal/3/6/?skipHybridRedirect=1#/class/211953/gradebook/assignment/1745018');
 
 INSERT INTO assignments (assignmentsid, coursesid, universitiesid, ui_identifier, summative_feedback)
 VALUES
@@ -198,10 +202,6 @@ VALUES
 ('Sentence Structure, Word Choice, and Transitions', 'POST', 1, 'To have earned the most points in this rubric element, it was necessary to have work that included complete sentences and that also varied with sentence structure and length. It was also necessary to take out extraneous words and phrases so the work was concise. Very good.  I can see commitment to your studies in this rubric element.  Although you earned the maximum available points in this rubric element, it''s always nice to have resources. For instance, check out this resource for Post students: Check them out: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1'),
 ('Sentence Structure, Word Choice, and Transitions', 'POST', 2, 'To have earned the most points in this rubric element, it was necessary to have work that included complete sentences and that also varied with sentence structure and length. It was also necessary to take out extraneous words and phrases so the work was concise.  Academic writing can take a little bit of work to learn. It would be good to develop in this area.  Fortunately, the school has some excellent resources available to you. Check them out: https://post.blackboard.com/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_649_1');
 
--- max points = 5
--- miss one: max points = 3.5
--- miss two: points = 2
--- no response: 0 ("No submission" is response)
 
 -- RUBRIC ELEMENTS FOR UNIVERSITIES
 INSERT INTO universities_rubric_elements (universitiesid, title, rank, response)
@@ -221,19 +221,39 @@ VALUES
 
 -- for radios, make sure the rank modifiers are mutually exclusive. For checkboxes, make sure rank-modifiers sum to 1 for each title
 -- kinda janky, but use a rank_modifier of 0.0 for checkboxes to indicate the "full" points response. These will not show up in UI but will store response
-INSERT INTO universities_rubric_elements (universitiesid, rank, percent_total, rank_modifier, title, title_order, is_radio, rank_name, response)
+-- have duplicate data here because I decided to turn this table into a one-to-many table for simplicity (tradeoff sucks)
+INSERT INTO universities_rubric_elements (universitiesid, is_db, rank, percent_total, rank_modifier, title, title_order, is_radio, rank_name, response)
 VALUES
-('CTU',  1, 0.55, 1.00, 'Task Requirements',                          1, TRUE,  'Word Count Full', 'Your assignment meets the required length.'),
-('CTU',  2, 0.55, 0.75, 'Task Requirements',                          1, TRUE,  'Word Count 3/4',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
-('CTU',  3, 0.55, 0.50, 'Task Requirements',                          1, TRUE,  'Word Count 1/2',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
-('CTU',  1, 0.25, 0.0,  'Demonstration and Application of Knowledge', 2, FALSE, 'Full Points', 'This shows as a strength of your submission because you show your understanding of course concepts in your writing. Love it!'),
-('CTU',  2, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'Poor Comprehension', '[insert stuff about comprehension]'),
-('CTU',  3, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'No scholarly sources', 'Please note that, to maximize your grade, it''s necessary to include high-quality citations in your work. You might benefit from checking out the different types of writing in the writing support center. This is a super way to learn about the different kinds of writing and what to include in each. Check it out here: https://careered.libguides.com/ctu/writing/types'),
-('CTU',  1, 0.20, 0.0,  'Academic Writing',                           3, FALSE, 'Full Points', 'This rubric element shows the strength of your work because in your submission, you have excellent grammar and APA formatting.  I admire your work ethic!'),
-('CTU',  2, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Content that should have citation', 'Please note that your work should also have in text references each and every time that you use words, thoughts, ideas, etc. from another. Additionally, each in text reference should have a corresponding reference list entry. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
-('CTU',  3, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Grammar/Spelling Errors', 'Please note that it''s necessary to have work that is largely free of grammar and spelling errors to maximize your points in this rubric element. The good news is that the school has an awesome resource to help you in this area. I recommend that you navigate here: https://careered.libguides.com/ctu/writing/grammar'),
-('CTU',  4, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'In-text citation missing', 'The project is misisng in text references. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
-('CTU',  5, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Reference list missing', 'Each in text reference should have a corresponding reference list entry. The project is missing reference list entries. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa');
+-- for assignments
+('CTU',  FALSE, 1, 0.55, 1.00, 'Task Requirements',                          1, TRUE,  'Word Count Full', 'Your assignment meets the required length.'),
+('CTU',  FALSE, 2, 0.55, 0.75, 'Task Requirements',                          1, TRUE,  'Word Count 3/4',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
+('CTU',  FALSE, 3, 0.55, 0.50, 'Task Requirements',                          1, TRUE,  'Word Count 1/2',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
+('CTU',  FALSE, 1, 0.25, 0.0,  'Demonstration and Application of Knowledge', 2, FALSE, 'Full Points', 'This shows as a strength of your submission because you show your understanding of course concepts in your writing. Love it!'),
+('CTU',  FALSE, 2, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'Poor Comprehension', '[insert stuff about comprehension]'),
+('CTU',  FALSE, 3, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'No scholarly sources', 'Please note that, to maximize your grade, it''s necessary to include high-quality citations in your work. You might benefit from checking out the different types of writing in the writing support center. This is a super way to learn about the different kinds of writing and what to include in each. Check it out here: https://careered.libguides.com/ctu/writing/types'),
+('CTU',  FALSE, 1, 0.20, 0.0,  'Academic Writing',                           3, FALSE, 'Full Points', 'This rubric element shows the strength of your work because in your submission, you have excellent grammar and APA formatting.  I admire your work ethic!'),
+('CTU',  FALSE, 2, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Content that should have citation', 'Please note that your work should also have in text references each and every time that you use words, thoughts, ideas, etc. from another. Additionally, each in text reference should have a corresponding reference list entry. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
+('CTU',  FALSE, 3, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Grammar/Spelling Errors', 'Please note that it''s necessary to have work that is largely free of grammar and spelling errors to maximize your points in this rubric element. The good news is that the school has an awesome resource to help you in this area. I recommend that you navigate here: https://careered.libguides.com/ctu/writing/grammar'),
+('CTU',  FALSE, 4, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'In-text citation missing', 'The project is misisng in text references. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
+('CTU',  FALSE, 5, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Reference list missing', 'Each in text reference should have a corresponding reference list entry. The project is missing reference list entries. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
+-- for discussion posts
+('CTU',  TRUE,  1, 0.55, 1.00, 'Task Requirements',                          1, TRUE,  'Word Count Full', 'DQ - Your assignment meets the required length.'),
+('CTU',  TRUE,  2, 0.55, 0.75, 'Task Requirements',                          1, TRUE,  'Word Count 3/4',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
+('CTU',  TRUE,  3, 0.55, 0.50, 'Task Requirements',                          1, TRUE,  'Word Count 1/2',  'Please note that to earn the most points for this learning activity, it is necessary to submit work that meets the minimum word or page count following standard APA 6 format. Extra, non standard spacing also does not contribute toward length requirements. Also, please note that only what you writes counts toward the length requirements.  This does not include things such as the title page, abstract,  reference, or repeating the prompt. The prompt also has the length requirements in it.  The school has a really awesome resource to help you develop writing skills. This might be useful for you: https://careered.libguides.com/ctu/writings'),
+('CTU',  TRUE,  1, 0.25, 0.0,  'Demonstration and Application of Knowledge', 2, FALSE, 'Full Points', 'This shows as a strength of your submission because you show your understanding of course concepts in your writing. Love it!'),
+('CTU',  TRUE,  2, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'Poor Comprehension', '[insert stuff about comprehension]'),
+('CTU',  TRUE,  3, 0.25, 0.5,  'Demonstration and Application of Knowledge', 2, FALSE, 'No scholarly sources', 'Please note that, to maximize your grade, it''s necessary to include high-quality citations in your work. You might benefit from checking out the different types of writing in the writing support center. This is a super way to learn about the different kinds of writing and what to include in each. Check it out here: https://careered.libguides.com/ctu/writing/types'),
+('CTU',  TRUE,  1, 0.20, 0.0,  'Academic Writing',                           3, FALSE, 'Full Points', 'This rubric element shows the strength of your work because in your submission, you have excellent grammar and APA formatting.  I admire your work ethic!'),
+('CTU',  TRUE,  2, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Content that should have citation', 'Please note that your work should also have in text references each and every time that you use words, thoughts, ideas, etc. from another. Additionally, each in text reference should have a corresponding reference list entry. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
+('CTU',  TRUE,  3, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Grammar/Spelling Errors', 'Please note that it''s necessary to have work that is largely free of grammar and spelling errors to maximize your points in this rubric element. The good news is that the school has an awesome resource to help you in this area. I recommend that you navigate here: https://careered.libguides.com/ctu/writing/grammar'),
+('CTU',  TRUE,  4, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'In-text citation missing', 'The project is misisng in text references. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa'),
+('CTU',  TRUE,  5, 0.20, 0.25, 'Academic Writing',                           3, FALSE, 'Reference list missing', 'Each in text reference should have a corresponding reference list entry. The project is missing reference list entries. To learn more about references and how to use APA, please check out this really helpful CTU resource: https://careered.libguides.com/ctu/writing/apa');
+
+
+-- max points = 5
+-- miss one: max points = 3.5
+-- miss two: points = 2
+-- no response: 0 ("No submission" is response)
 
 -- This is the actual logic for GCU. Above is just a test for CTU style logic when I get around to fixing all the robots
 -- Full points response for those with sources

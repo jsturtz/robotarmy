@@ -51,7 +51,6 @@ class LoginSelector:
         self.pass_elem.clear()
         self.user_elem.send_keys(self.config["username"])
         self.pass_elem.send_keys(self.config["password"])
-        self.submit_btn.click()
         br.safely_click(self.driver, self.submit_btn)
 
 class GraderSelector:
@@ -454,18 +453,21 @@ class SingleBoxV1(SingleBoxGrader):
         self.student_name = self.get_student_name()
         self.total_points = self.get_total_points()
         self.universitiesid = self.get_universitiesid()
+        self.rubric_elems = self.get_rubric_elems()
 
         # this base class depends on having the right data in universities_rubric_elements
-        self.rubric_elems = db.query_grouped_by_dict(
+
+        super().__init__(self.driver, self.con)
+
+    def get_rubric_elems(self):
+        return db.query_grouped_by_dict(
             self.con,
             table="universities_rubric_elements",
             grouped_by="title",
             columns=["rank", "rank_name", "rank_modifier", "percent_total", "response", "title_order", "title", "is_radio"],
             where=f"WHERE universitiesid = '{self.universitiesid}'",
             order_by="ORDER BY title_order, rank")
-           
-        super().__init__(self.driver, self.con)
-       
+
     def get_student_name(self):
         raise NotImplementedError("You must provide a function to get student name")
     
@@ -496,11 +498,10 @@ class SingleBoxV1(SingleBoxGrader):
     # the "values" is the output from the UI
     def get_response_and_score(self, values):
 
-        responses = []
-        total_score = 0
-        visible_categories = OrderedDict()
+        # builds up total possible score, actual score, and responses to be used below when building up responses and final score
+        rubric_results = OrderedDict()
 
-        # loop over each rubric element to calculate score and response for each visible category
+        # loop over each rubric element to calculate score and response for each category
         for title, rows in self.rubric_elems.items():
             
             # check if radio or checkbox
@@ -512,61 +513,60 @@ class SingleBoxV1(SingleBoxGrader):
                 # use selected rank and title to lookup record
                 record = [row for row in rows if row['rank'] == int(selected_rank)][0]
 
-                # add scores and response to visible_categories dictionary
-                visible_categories[title] = {}
+                # add scores and response to rubric_results dictionary
+                rubric_results[title] = {}
                 total_possible_score = record["percent_total"] * self.total_points
-                visible_categories[title]["total_possible_score"] = total_possible_score
-                visible_categories[title]["actual_score"] = total_possible_score * record["rank_modifier"]
-                visible_categories[title]["responses"] = [record["response"]]   # keep as list for consistency below
+                rubric_results[title]["total_possible_score"] = total_possible_score
+                rubric_results[title]["actual_score"] = total_possible_score * record["rank_modifier"]
+                rubric_results[title]["responses"] = [record["response"]]   # keep as list for consistency below
                 
             else: 
-                # calculate total score first and set actual to total possible if key not already in visible categories
+                # calculate total score first and set actual to total possible if key not already in rubric results
                 total_possible_score = rows[0]["percent_total"] * self.total_points
-                visible_categories.setdefault(title, {"total_possible_score": total_possible_score, "actual_score": total_possible_score, "responses": []})
-                
+                rubric_results.setdefault(title, {"total_possible_score": total_possible_score, "actual_score": total_possible_score, "responses": []})
+
                 # get all checked boxes (checked boxes represent points to be subtracted from total)
                 selected_ranks = [key.split('-')[0] for key, val in values.items() if title in key and val]
-                
-                # in no checkboxes selected, only add a response indicating full points 
+
+                # in no checkboxes selected, only add a response indicating full points
                 if not selected_ranks:
                     # get full points response
                     full_points_response = [row["response"] for row in rows if int(row["rank_modifier"]) == 0][0]
-                    visible_categories[title]["responses"].append(full_points_response)
-                    
+                    rubric_results[title]["responses"].append(full_points_response)
+
                 # iterate over ranks
                 for rank in selected_ranks:
-                    
+
                     # use selected rank to lookup record
                     record = [row for row in rows if row['rank'] == int(rank)][0]
-                    
-                    # then compute the score reduction and re-assign actual score 
-                    score_reduction = total_possible_score * (1 - record["rank_modifier"])     # subtract modifier from total
+
+                    # then compute the score given the reduction and re-assign actual score
+                    lost_points = total_possible_score * record["rank_modifier"]
                     response = record["response"]
-                    
-                    # reduce actual score and add response for this checkbox item
-                    visible_categories[title]["actual_score"] -= score_reduction
-                    visible_categories[title]["responses"].append(response)
-        
+
+                    # subtract lost points from actual score and add response for this checkbox item
+                    rubric_results[title]["actual_score"] -= lost_points
+                    rubric_results[title]["responses"].append(response)
+
         # calculate total score
-        scores = [val["actual_score"] for key, val in visible_categories.items()]
+        scores = [val["actual_score"] for key, val in rubric_results.items()]
         total_score = str(int(functools.reduce(lambda a,b : a+b, scores)))
-        
+
         # build up responses list
+        responses = []
         responses.append(f"{self.student_name},")
         responses.append("Thank you for your work with this learning activity. Below, I will outline your earned points for this learning activity. \
             I will also provide feedback specific to each rubric element. Please check it out! Remember, I am invested in you and your success. \
             Please reach out if you need anything")
         responses.append(f"The total points you earned for this learning activity: {total_score}")
-        
+
         # add responses and scores from visible categories
-        for category, values in visible_categories.items():
+        for category, values in rubric_results.items():
             
-            actual_score = str(values["actual_score"]).strip('0')
-            total_possible_score = str(values["total_possible_score"]).strip('0')
+            actual_score = str(values["actual_score"]).strip('0').strip('.')
+            total_possible_score = str(values["total_possible_score"]).strip('0').strip('.')
 
             # then append a response for the whole category
-            # FIXME: The score calculations are wrong. Getting negative values. 
-            # FIXME: The discussion post responses need to be created somehow
             responses.append(f'Points earned under the category "{category}": {actual_score} out of a total {total_possible_score}')
             responses.append(f'Here is the feedback for {category}:')
 
@@ -590,14 +590,33 @@ class ColoradoTechGrader(SingleBoxV1):
     def __init__(self, driver, con):
         self.driver = driver
         self.con = con
-        
-        # kinda hacky, but this will switch to last opened window (so don't fuck with other tabs before grading)
-        driver.switch_to.window(driver.window_handles[-1])
+
+        # use this to switch to window FIXME: Make this into a function?
+        found_window = False
+        for handle in driver.window_handles[-1:]:
+            driver.switch_to_window(handle)
+            if "coloradotech.edu" in driver.current_url and "gradebook" in driver.current_url:
+                found_window = True
+                break
+        if not found_window:
+            raise Exception("Cannot find window to grade")
+
+        # decide whether screen is for discussion post or assignment
+        self.is_db = "Discussion Board" in self.driver.find_element_by_xpath('//label[contains(text(), "Type:")]/..').get_attribute("innerHTML")
 
         # pass to base SingleBoxV1 class
         super().__init__(self.driver, self.con)
-        
+
     # these are specific to Colorado Tech
+    def get_rubric_elems(self):
+        return db.query_grouped_by_dict(
+            self.con,
+            table="universities_rubric_elements",
+            grouped_by="title",
+            columns=["rank", "rank_name", "rank_modifier", "percent_total", "response", "title_order", "title", "is_radio"],
+            where=f"WHERE universitiesid = '{self.universitiesid}' AND is_db = {self.is_db}",
+            order_by="ORDER BY title_order, rank")
+
     def get_universitiesid(self):
         return 'CTU'
     
@@ -605,12 +624,16 @@ class ColoradoTechGrader(SingleBoxV1):
         return self.driver.find_element_by_xpath('//h3[contains(text(), "Comment for")]').text.split(", ")[1]
 
     def get_total_points(self):
-        return int(self.driver.find_element_by_xpath('//label[contains(text(), "Points Possible")]/..').text.split(': ')[1])
+        # doing insane shit here, so decided on a hacky regex workaround to get the text
+        elem = self.driver.find_element_by_xpath('//label[contains(text(), "Points Possible")]/..')
+        m = re.search('</label>([0-9]*)', elem.get_attribute('innerHTML'))
+        return int(m.group(1))
 
     def send_feedback(self, feedback):
         # iframes are nasty, so switch to iframe, then send, then switch back to main window
+        # Because the sent values are wrapped in html we cannot change, you must manually delete existing content
         current_handle = self.driver.current_window_handle
-        iframe = self.driver.find_element_by_id('ui-tinymce-0_ifr')
+        iframe = self.driver.find_element_by_xpath('//iframe[contains(@id, "ui-tinymce")]')
         self.driver.switch_to.frame(iframe)
         feedback_elem = self.driver.find_element_by_id("tinymce")
         br.send_keys(self.driver, feedback_elem, feedback)
@@ -623,7 +646,6 @@ class ColoradoTechGrader(SingleBoxV1):
 
 '''
 Class that will generate UI to display links in universities_links, courses_links, and assignment_links
-'''
 class QuickLinks:
 
     def __init__(self, driver, con):
@@ -662,3 +684,4 @@ class QuickLinks:
             # the event in this case always holds the url
             self.driver.get(event)
         window.close()
+'''

@@ -2,9 +2,17 @@
 Put any common database tools here
 '''
 from collections import OrderedDict
+import psycopg2.extras
 
 def query(con, query):
     cur = con.cursor()
+    cur.execute(query)
+    rows = cur.fetchall()
+    cur.close()
+    return rows
+
+def query_dict(con, query):
+    cur = con.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute(query)
     rows = cur.fetchall()
     cur.close()
@@ -85,5 +93,9 @@ def get_university_summative_feedback(con, universitiesid, name):
         raise Exception(f'No summative feedback found for {universitiesid}')
 
     return feedback.format(name=name)
+
+
+
+
 
 
