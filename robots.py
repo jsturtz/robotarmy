@@ -549,7 +549,7 @@ class SingleBoxV1(SingleBoxGrader):
                     rubric_results[title]["responses"].append(response)
 
         # calculate total score
-        scores = [val["actual_score"] for key, val in rubric_results.items()]
+        scores = [val["actual_score"] for key, val in rubric_results.items() if key != "Originality Verification"]
         total_score = str(int(functools.reduce(lambda a,b : a+b, scores)))
 
         # build up responses list
@@ -567,8 +567,11 @@ class SingleBoxV1(SingleBoxGrader):
             total_possible_score = str(values["total_possible_score"]).strip('0').strip('.')
 
             # then append a response for the whole category
-            responses.append(f'Points earned under the category "{category}": {actual_score} out of a total {total_possible_score}')
-            responses.append(f'Here is the feedback for {category}:')
+            if category != 'Originality Verification':
+                responses.append(f'Points earned under the category "{category}": {actual_score} out of a total {total_possible_score}')
+                responses.append(f'Here is the feedback for {category}:')
+            else:
+                responses.append("Originality Verification (OV) Review")
 
             # then append responses for each subcategory
             for resp in values["responses"]:

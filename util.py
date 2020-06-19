@@ -29,7 +29,8 @@ def get_chrome_driver():
     config = get_config()["selenium"]
     options = webdriver.ChromeOptions()
     options.binary_location = config["chrome-executable"]
-    options.add_argument(f'user-data-dir={config["chrome-profile"]}')
+    # comment this in to use a profile located at the chrome-profile config
+    # options.add_argument(f'user-data-dir={config["chrome-profile"]}')
 
     # FIXME: set up account different from usual profile
     return webdriver.Chrome(executable_path='C:\\Program Files\\ChromeDriver\\chromedriver.exe', options=options)

@@ -37,21 +37,7 @@ def add_links(layout):
             structure[row["universitiesid"]]["courses"].setdefault(row["coursesid"], OrderedDict())
             structure[row["universitiesid"]]["courses"][row["coursesid"]].setdefault("links", OrderedDict())
             structure[row["universitiesid"]]["courses"][row["coursesid"]]["links"][row["course_pretty_name"]] = row["course_url"]
-    '''
-    structure = {
-        "POST" : {
-            "links": {"Home" : "some_url"},
-            "courses": {
-                "MKT200": {
-                    "links": {"Home": "some_url"}
-                }
-            }
-        },
-        "GCU"...
-    }
-    
-    '''
-    print(structure)
+
     layout = add_subtitle(layout, "Universities")
     for uni, values in structure.items():
         layout.append([sg.Text(uni)] + [sg.Button(name, key=f"link-{url}") for name, url in values["links"].items()])
