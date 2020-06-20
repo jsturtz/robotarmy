@@ -550,7 +550,7 @@ class SingleBoxV1(SingleBoxGrader):
 
         # calculate total score
         scores = [val["actual_score"] for key, val in rubric_results.items() if key != "Originality Verification"]
-        total_score = str(int(functools.reduce(lambda a,b : a+b, scores)))
+        total_score = str(round(functools.reduce(lambda a, b: a+b, scores), 1))
 
         # build up responses list
         responses = []
@@ -563,8 +563,8 @@ class SingleBoxV1(SingleBoxGrader):
         # add responses and scores from visible categories
         for category, values in rubric_results.items():
             
-            actual_score = str(values["actual_score"]).strip('0').strip('.')
-            total_possible_score = str(values["total_possible_score"]).strip('0').strip('.')
+            actual_score = str(round(values["actual_score"], 1))
+            total_possible_score = str(round(values["total_possible_score"], 1))
 
             # then append a response for the whole category
             if category != 'Originality Verification':
@@ -647,44 +647,4 @@ class ColoradoTechGrader(SingleBoxV1):
         score_elem.clear()
         br.send_keys(self.driver, score_elem, score)
 
-'''
-Class that will generate UI to display links in universities_links, courses_links, and assignment_links
-class QuickLinks:
 
-    def __init__(self, driver, con):
-        self.driver = driver
-        self.con = con
-
-    def display_links(self):
-        columns = ['pretty_name', 'url']
-        uni_links = db.query_grouped_by_dict(self.con, 'universities_links', 'universitiesid', columns)
-        course_links = db.query_grouped_by_dict(self.con, 'courses_links', 'coursesid', columns)
-        assign_links = db.query_grouped_by_dict(self.con, 'assignments_links', 'assignmentsid', columns)
-
-        layout = []
-        if uni_links:
-            layout.append([sg.Text('Universities')])
-            for uni, links in uni_links.items():
-                layout.append([sg.Text(uni)] + [sg.Button(link['pretty_name'], key=link['url']) for link in links])
-        if course_links:
-            layout.append([sg.Text('Courses')])
-            for course, links in course_links.items():
-                layout.append([sg.Text(course)] + [sg.Button(link['pretty_name'], key=link['url']) for link in links])
-        if assign_links:
-            layout.append([sg.Text('Universities')])
-            for assignment, links in uni_links.items():
-                layout.append([sg.Text(assignment)] + [sg.Button(link['pretty_name'], key=link['url']) for link in links])
-        if not layout:
-            layout.append([sg.Text("You have not created any links. Insert some records into universities_links, courses_links, or assignments_links")])
-        layout.append([sg.Cancel()])
-
-        window = sg.Window('Quicklinks', layout)
-        while True:
-            event, values = window.read()
-            if event in (None, 'Cancel'):   # if user closes window or clicks cancel
-                break
-
-            # the event in this case always holds the url
-            self.driver.get(event)
-        window.close()
-'''

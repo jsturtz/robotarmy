@@ -257,6 +257,15 @@ VALUES
 ('CTU',  TRUE,  3, 1.00, NULL, 'Originality Verification',                   4, TRUE,  'Self Plagiarism', 'Your work has a fairly high OV percentage. Please note that high OV percentages can come from a variety of things, such as reusing or repurchasing your own work. My review shows that this might be the case here and seems to comply with the school''s academic integrity policy. Thank you! Please also check out the schools reuse/repurpose policy you can find here: https://coloradotech.smartcatalogiq.com/en/2015/Catalog/Academic-Affairs/Classroom-Policies/Repurposing-and-Re-use-of-Student-Work-Policy'),
 ('CTU',  TRUE,  4, 1.00, NULL, 'Originality Verification',                   4, TRUE,  'Copy', 'My OV review shows that your work contains a high OV percentage. It appears that these matches come from an overreliance on information from outside sources. Even though you have citations in your work, college level work should be much more than copy and paste from various Internet sources. it is important to show both comprehension and critical thought in your work. You can''t really show these when so much of your work seems to be copy and paste from sources.\n\nComprehension is your application of learning from the course materials. Critical thinking is your assessment of the information you''ve learned. The majority of your work should be in these two areas. Then, citations come in only as evidence and support for your own critical thinking. The good news is that the school has excellent resources to help you develop in these areas. I strongly recommend you check out this area of the writing support center: https://careered.libguides.com/ctu/writing/assignment');
 
+-- For GCU
+INSERT INTO universities_rubric_elements (universitiesid, title, is_db, is_radio, rank, rank_modifier, response)
+VALUES
+-- For GCU
+('GCU',  'Full Points',                     TRUE, TRUE, 1, 1.00, 'Thank you for your work with this learning activity. Your initial reply to this discussion question was robust and it included citations.  These are the two main ways to maximize both your grade and your learning.  Well done!'),
+('GCU',  'Full Points (No Sources Needed)', TRUE, TRUE, 2, 1.00, 'Thank you for your work with this learning activity. Almost always, discussion question should come with at least one robust citation in the text and then also in matching reference list entry. In this case, and in the case with our other discussion question, the topics are more about personal experience. As such, citations are not necessary. Thank you for your good work!'),
+('GCU',  'Lacking Sources',                 TRUE, TRUE, 3, 0.70, 'Thank you for your work with this learning activity. You have a good start here. I also recommend that, in future discussion question responses, you include citations in your initial reply. These should be in you the text and in a corresponding reference list.'),
+('GCU',  'Lacking Substance',               TRUE, TRUE, 4, 0.70, 'Thank you for your work with this learning activity. You have a good start here. To earn the maximum available points, it''s necessary to have a more robust initial reply.'),
+('GCU',  'Lacking Both',                    TRUE, TRUE, 5, 0.40, 'Thank you for your work with this learning activity. You have a good start here. To earn the maximum available points, it''s necessary to have a more robust initial reply. I also recommend that, in future discussion question responses, you include citations in your initial reply. These should be in you the text and in a corresponding reference list.');
 
 -- max points = 5
 -- miss one: max points = 3.5
@@ -267,13 +276,12 @@ VALUES
 -- Full points response for those with sources
     -- Angela , Thank you for your work with this learning activity.  Your initial reply to this discussion question was robust and it included citations.  These are the two main ways to maximize both your grade and your learning.  Well done!
 -- 3.5 for lacking sources
-    -- Terrance, Thank you for your work with this learning activity. You have a good start here. I also recommend that, in future discussion question responses, you include citations in your initial reply. These should be in you the text and in a corresponding reference list.
+    -- Thank you for your work with this learning activity. You have a good start here. I also recommend that, in future discussion question responses, you include citations in your initial reply. These should be in you the text and in a corresponding reference list.
 -- 3.5 for not being robust
     -- Nikki Thank you for your work with this learning activity. You have a good start here. To earn the maximum available points, it's necessary to have a more robust initial reply.
 -- need one for 2.0 I would guess
 
 -- No sources needed, full points
--- Alissa , Thank you for your work with this learning activity. Almost always, discussion question should come with at least one robust citation in the text and then also in matching reference list entry. In this case, and in the case with our other discussion question, the topics are more about personal experience. As such, citations are not necessary. Thank you for your good work!
 
 -- RUBRIC ELEMENTS FOR ASSIGNMENTS
 
