@@ -10,6 +10,8 @@ selenium = "*"
 pysimplegui = "*"
 psycopg2 = "*"
 pyperclip = "*"
+pyqt5-tools = "*"
+pyuic5-tool = "*"
 
 [requires]
 python_version = "3.6"

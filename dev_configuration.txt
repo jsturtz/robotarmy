@@ -96,3 +96,16 @@ Selenium configuration
     https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win_x64/756057/
     Create a Chrome83 folder in Program Files and put the win-chrome folder there. Add the exectuable to the PATH
 
+Installing Qt
+    In pycharm terminal, execute "pipenv install"
+    Copy the "platforms" folder in
+        C:\Users\<your user>\.virtualenvs\robotarmy-JAyMzHRq\Lib\site-packages\PyQt5\Qt\plugins
+    Past that folder into
+        C:\Users\<your user>\.virtualenvs\robotarmy-JAyMzHRq\Lib\site-packages\pyqt5_tools\Qt\bin
+    This will replace the "platforms" folder there. Needed to update the .dlls for some reason
+
+    Create a "bin" folder in (yes a bin folder sitting in bin):
+        C:\Users\<your user>\.virtualenvs\robotarmy-JAyMzHRq\Lib\site-packages\pyqt5_tools\Qt\bin\
+
+    Copy the "uic" application sitting in Qt\bin to that new bin folder (stupid I know)
+
