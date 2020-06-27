@@ -12,6 +12,7 @@ psycopg2 = "*"
 pyperclip = "*"
 pyqt5-tools = "*"
 pyuic5-tool = "*"
+pyside2 = "*"
 
 [requires]
 python_version = "3.6"

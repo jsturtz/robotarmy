@@ -38,7 +38,7 @@ def query_grouped_by_dict(con, table, grouped_by, columns="*", where="", order_b
     cur.close()
     return return_dict
 
-
+# specific functions meant to get specific data
 def get_discussion_board_rubric_elements(con, universitiesid):
     cur = con.cursor()
     cur.execute(f"""
@@ -93,6 +93,33 @@ def get_university_summative_feedback(con, universitiesid, name):
         raise Exception(f'No summative feedback found for {universitiesid}')
 
     return feedback.format(name=name)
+
+def get_links_dict(con):
+
+    rows = query_dict(con, """
+        select  u.universitiesid, ul.pretty_name as uni_pretty_name, ul.url as uni_url, 
+                c.coursesid, cl.pretty_name as course_pretty_name, cl.url as course_url
+        from universities u 
+        left join courses c on u.universitiesid = c.universitiesid 
+        left join universities_links ul on ul.universitiesid = u.universitiesid 
+        left join courses_links cl on cl.coursesid = c.coursesid and cl.universitiesid = u.universitiesid 
+        order by u.universitiesid, c.coursesid;
+    """)
+
+    structure = OrderedDict()
+    for row in rows:
+        structure.setdefault(row["universitiesid"], OrderedDict())
+        if row["uni_url"] and row["uni_pretty_name"]:
+            structure[row["universitiesid"]].setdefault("links", OrderedDict())
+            structure[row["universitiesid"]]["links"].setdefault(row["uni_pretty_name"], row["uni_url"])
+
+        structure[row["universitiesid"]].setdefault("courses", OrderedDict())
+        if row["course_pretty_name"] and row["course_url"]:
+            structure[row["universitiesid"]]["courses"].setdefault(row["coursesid"], OrderedDict())
+            structure[row["universitiesid"]]["courses"][row["coursesid"]].setdefault("links", OrderedDict())
+            structure[row["universitiesid"]]["courses"][row["coursesid"]]["links"][row["course_pretty_name"]] = row["course_url"]
+
+    return structure
 
 
 
