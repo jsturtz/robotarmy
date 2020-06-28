@@ -138,13 +138,10 @@ class RubricElemGrader(ABC):
     '''
     Returns tuple of (elem, response)
     '''
-    @abstractmethod
-    def get_summative_feedback(self):
-        raise NotImplementedError("You must create a function to retrieve the summative feedback as tuple (elem, response)")
 
     @abstractmethod
-    def get_final_submit_btn(self):
-        raise NotImplementedError("You must create a function to retrieve the final submit button")
+    def submit_summative_feedback(self):
+        raise NotImplementedError("You must create a function to submit summative feedback")
 
     @abstractmethod
     def send_feedback(self, elem, response):
@@ -171,8 +168,6 @@ class RubricElemGrader(ABC):
         rubric_elems = self.get_rubric_elems()
         rubric_responses = self.get_rubric_responses()
         max_scoring_keyword = self.get_max_scoring_keyword()
-        summative_elem, summative_response = self.get_summative_feedback()
-        final_submit_btn = self.get_final_submit_btn()
         layout = self.build_radio_selector_layout(rubric_elems, max_scoring_keyword)
 
         # all this is the same
@@ -210,11 +205,7 @@ class RubricElemGrader(ABC):
                         self.send_feedback(elem["feedback"], response)
 
                     # submit summative feedback
-                    br.send_keys(self.driver, summative_elem, br.replace_newlines(summative_response))
-
-                    # submit button!
-                    # FIXME: Remove uncomment for actual production
-                    # br.safely_click(self.driver, final_submit_btn)
+                    self.submit_summative_feedback()
                     break
 
             except Exception as e:
@@ -319,13 +310,22 @@ class BlackboardGrader(RubricElemGrader):
     def get_rank_of_selected_label(self, label):
         return 1 if label == self.get_max_scoring_keyword() else 2
 
-    def get_summative_feedback(self):
-        response = db.get_university_summative_feedback(self.con, self.universitiesid, self.student_name)
-        elem = self.driver.find_element_by_xpath('//div[@class="rubricGradingComments"]//textarea')
-        return (elem, response)
+    def submit_summative_feedback(self):
+        summative_response = br.replace_newlines(db.get_university_summative_feedback(self.con, self.universitiesid, self.student_name))
+        save_btn = self.driver.find_element_by_xpath("//a[@class='button-3' and text()='Save Rubric']")
+        br.safely_click(self.driver, save_btn)
 
-    def get_final_submit_btn(self):
-        return self.driver.find_element_by_xpath("//a[@class='button-3' and text()='Save Rubric']")
+        # iframes again yay
+        current_handle = self.driver.current_window_handle
+        iframe = self.driver.find_element_by_xpath('//iframe[contains(@id, "feedbacktext")]')
+        self.driver.switch_to.frame(iframe)
+        feedback_elem = self.driver.find_element_by_id("tinymce")
+        br.send_keys(self.driver, feedback_elem, summative_response)
+        self.driver.switch_to_window(current_handle)
+
+        # FOR DAD: Comment this in for actual production
+        # submit_btn = self.driver.find_element_by_id("currentAttempt_submitButton")
+        # br.safely_click(self.driver, submit_btn)
 
     # use default implemented in base class
     def send_feedback(self, elem, response):
