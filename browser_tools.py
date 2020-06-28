@@ -54,3 +54,23 @@ def element_exists(driver, by, identifier):
     except:
         driver.implicitly_wait(10)
         return False
+
+def switch_to_window_by_all_matches(driver, matches):
+    found_window = False
+    for handle in driver.window_handles[-1:]:
+        driver.switch_to_window(handle)
+        if all(s in driver.current_url for s in matches):
+            found_window = True
+            break
+    if not found_window:
+        raise Exception("Cannot find window to grade")
+
+def switch_to_window_by_any_matches(driver, matches):
+    found_window = False
+    for handle in driver.window_handles[-1:]:
+        driver.switch_to_window(handle)
+        if any(s in driver.current_url for s in matches):
+            found_window = True
+            break
+    if not found_window:
+        raise Exception("Cannot find window to grade")

@@ -215,9 +215,11 @@ class RubricElemGrader(ABC):
                     # submit button!
                     # FIXME: Remove uncomment for actual production
                     # br.safely_click(self.driver, final_submit_btn)
+                    break
 
             except Exception as e:
                 ui.error_window(e)
+        window.close()
 
 '''
 Concrete class that implements RubricElemGrader
@@ -436,8 +438,10 @@ class SingleBoxGrader(ABC):
                     response, score = self.get_response_and_score(values)
                     self.send_feedback(response)
                     self.send_score(score)
+                    break
             except Exception as e:
                 ui.error_window(e)
+        window.close()
 
 '''
 Base class that implements SingleBoxGrader
@@ -594,15 +598,8 @@ class ColoradoTechGrader(SingleBoxV1):
         self.driver = driver
         self.con = con
 
-        # use this to switch to window FIXME: Make this into a function?
-        found_window = False
-        for handle in driver.window_handles[-1:]:
-            driver.switch_to_window(handle)
-            if "coloradotech.edu" in driver.current_url and "gradebook" in driver.current_url:
-                found_window = True
-                break
-        if not found_window:
-            raise Exception("Cannot find window to grade")
+        # switch to right window
+        br.switch_to_window_by_all_matches(driver, ["coloradotech.edu", "gradebook"])
 
         # decide whether screen is for discussion post or assignment
         self.is_db = "Discussion Board" in self.driver.find_element_by_xpath('//label[contains(text(), "Type:")]/..').get_attribute("innerHTML")
